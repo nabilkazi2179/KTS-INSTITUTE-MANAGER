@@ -86,15 +86,17 @@ def q(query, args=None, one=False):
         else:
             cur.execute(query)
         rows = cur.fetchall()
-        # Convert sqlite3.Row to dict for Jinja2 compatibility
         if DB_MODE == 'sqlite' and rows:
-            if hasattr(rows, '__getitem__') and hasattr(rows[0], 'keys'):
-                rows = [dict(r) for r in rows]
-            elif hasattr(rows, 'keys'):
-                rows = dict(rows)
-        if one:
-            return rows[0] if rows else None
-        return rows
+            result_rows = []
+            for r in rows:
+                if hasattr(r, 'keys'):
+                    result_rows.append(dict(r))
+                else:
+                    result_rows.append(r)
+            rows = result_rows
+            if one:
+                return rows[0] if rows else None
+        return rows[0] if one and rows else rows
     finally:
         db.close()
 
