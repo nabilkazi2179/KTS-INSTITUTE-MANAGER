@@ -228,9 +228,10 @@ def init_db():
     db.commit()
     
     # Default admin
-    admin = q("SELECT id FROM users WHERE username='admin'", one=True)
+    admin = q("SELECT id FROM users WHERE username=?", one=True)
     if not admin:
-        ex("INSERT INTO users (username,password_hash,full_name,email,role) VALUES (%s,%s,%s,%s,%s)",
+        cur2 = db.cursor()
+        cur2.execute("INSERT INTO users (username,password_hash,full_name,email,role) VALUES (?,?,?,?,?)",
             ('admin', generate_password_hash('admin123'), 'Super Admin', 'admin@kts.com', 'super_admin'))
     
     # Default courses
@@ -245,9 +246,10 @@ def init_db():
         ('AU','AutoCAD','3 Months',12000,'2D & 3D drafting, architectural drawings'),
     ]
     for c in dc:
-        exists = q("SELECT id FROM courses WHERE course_code=?", (c[0],), one=True)
-        if not exists:
-            ex("INSERT INTO courses (course_code,course_name,duration,fees,description) VALUES (?,?,?,?,?)", c)
+        cur2 = db.cursor()
+        cur2.execute("SELECT id FROM courses WHERE course_code=?", (c[0],))
+        if not cur2.fetchone():
+            cur2.execute("INSERT INTO courses (course_code,course_name,duration,fees,description) VALUES (?,?,?,?,?)", c)
     
     db.commit()
     db.close()
