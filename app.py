@@ -896,3 +896,13 @@ if __name__=='__main__':
     print('Login: admin / admin123')
     print('='*50)
     app.run(debug=True,host='0.0.0.0',port=5000)
+
+# ── Auto-init DB on every cold start (for Vercel serverless) ──
+_db_ready = False
+
+@app.before_request
+def ensure_db():
+    global _db_ready
+    if not _db_ready:
+        init_db()
+        _db_ready = True
