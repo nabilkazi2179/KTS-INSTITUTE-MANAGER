@@ -52,9 +52,12 @@ if DATABASE_URL and DATABASE_URL not in ('sqlite', ''):
         print(f'WARNING: Database init failed: {e}')
         print(f'Falling back to in-memory SQLite')
 else:
+    # SQLite (local development) - use file if writable
     import sqlite3
     DB_MODE = 'sqlite'
-    if os.path.isdir(BASE_DIR) and os.access(BASE_DIR, os.W_OK):
+    if os.access('/tmp', os.W_OK):
+        DB_PATH = '/tmp/kts_institute.db'
+    elif os.path.isdir(BASE_DIR) and os.access(BASE_DIR, os.W_OK):
         DB_PATH = os.path.join(BASE_DIR, 'kts_institute.db')
     else:
         DB_PATH = ':memory:'
@@ -104,12 +107,17 @@ app.config['MAX_CONTENT_LENGTH'] = 16*1024*1024
 ALLOWED = {'png','jpg','jpeg','gif','pdf','doc','docx'}
 
 # ── Init DB ──
+import threading
 _db_initialized = False
+_db_lock = threading.Lock()
+
 def init_db():
     global _db_initialized
-    if _db_initialized and DB_MODE == 'sqlite' and DB_PATH == ':memory:':
-        return
-    _db_initialized = True
+    with _db_lock:
+        if _db_initialized:
+            return
+        _db_initialized = True
+    
     db = get_db()
     cur = db.cursor()
     
