@@ -31,7 +31,7 @@ BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 # ── Database Config ──────────────────────────────────────────
 DATABASE_URL = os.environ.get('DATABASE_URL', '')
 
-if DATABASE_URL and DATABASE_URL != 'sqlite':
+if DATABASE_URL and DATABASE_URL not in ('sqlite', ''):
     # PostgreSQL (Vercel/production)
     try:
         import psycopg2
@@ -224,9 +224,9 @@ def init_db():
         ('AU','AutoCAD','3 Months',12000,'2D & 3D drafting, architectural drawings'),
     ]
     for c in dc:
-        exists = q("SELECT id FROM courses WHERE course_code=%s", (c[0],), one=True)
+        exists = q("SELECT id FROM courses WHERE course_code=?", (c[0],), one=True)
         if not exists:
-            ex("INSERT INTO courses (course_code,course_name,duration,fees,description) VALUES (%s,%s,%s,%s,%s)", c)
+            ex("INSERT INTO courses (course_code,course_name,duration,fees,description) VALUES (?,?,?,?,?)", c)
     
     db.commit()
     db.close()
@@ -331,10 +331,16 @@ def dashboard():
     for fs in q("SELECT student_id,total_fee FROM fee_structures"):
         pf+=max(0,(fs['total_fee'] or 0)-paid_amt(fs['student_id']))
     rs=q("SELECT s.*,c.course_name FROM students s LEFT JOIN courses c ON s.course_id=c.id ORDER BY s.id DESC LIMIT 5")
-    ue=q("SELECT e.*,c.course_name FROM exams e JOIN courses c ON e.course_id=c.id WHERE e.exam_date>=CURRENT_DATE ORDER BY e.exam_date LIMIT 5")
+    if DB_MODE == 'postgres':
+        ue=q("SELECT e.*,c.course_name FROM exams e JOIN courses c ON e.course_id=c.id WHERE e.exam_date>=CURRENT_DATE ORDER BY e.exam_date LIMIT 5")
+    else:
+        ue=q("SELECT e.*,c.course_name FROM exams e JOIN courses c ON e.course_id=c.id WHERE e.exam_date>=date('now') ORDER BY e.exam_date LIMIT 5")
     ci=q("SELECT COUNT(*) as c FROM certificates")[0]['c']
     ce=q("SELECT c.course_name,COUNT(s.id) as count FROM courses c LEFT JOIN students s ON c.id=s.course_id GROUP BY c.id ORDER BY count DESC")
-    mf=q("SELECT TO_CHAR(payment_date,'YYYY-MM') as month,SUM(amount) as total FROM fee_payments GROUP BY month ORDER BY month DESC LIMIT 6")
+    if DB_MODE == 'postgres':
+        mf=q("SELECT TO_CHAR(payment_date,'YYYY-MM') as month,SUM(amount) as total FROM fee_payments GROUP BY month ORDER BY month DESC LIMIT 6")
+    else:
+        mf=q("SELECT strftime('%Y-%m',payment_date) as month,SUM(amount) as total FROM fee_payments GROUP BY month ORDER BY month DESC LIMIT 6")
     return render_template('dashboard.html',ts=ts,acs=acs,tc=tc,tb=tb,tt=tt,tcol=tcol,tod=tod,mon=mon,pf=pf,ci=ci,rs=rs,ue=ue,ce=ce,mf=mf)
 
 # ════════════════════════════════════════════════════════
@@ -659,9 +665,15 @@ def reports():
 def report_admissions():
     period=request.args.get('period','monthly')
     if period=='daily':
-        rows=q("SELECT DATE(created_at) as period,COUNT(*) as count FROM students GROUP BY period ORDER BY period DESC LIMIT 30")
+        if DB_MODE == 'postgres':
+            rows=q("SELECT DATE(created_at) as period,COUNT(*) as count FROM students GROUP BY period ORDER BY period DESC LIMIT 30")
+        else:
+            rows=q("SELECT date(created_at) as period,COUNT(*) as count FROM students GROUP BY period ORDER BY period DESC LIMIT 30")
     else:
-        rows=q("SELECT TO_CHAR(created_at,'YYYY-MM') as period,COUNT(*) as count FROM students GROUP BY period ORDER BY period DESC LIMIT 12")
+        if DB_MODE == 'postgres':
+            rows=q("SELECT TO_CHAR(created_at,'YYYY-MM') as period,COUNT(*) as count FROM students GROUP BY period ORDER BY period DESC LIMIT 12")
+        else:
+            rows=q("SELECT strftime('%Y-%m',created_at) as period,COUNT(*) as count FROM students GROUP BY period ORDER BY period DESC LIMIT 12")
     return render_template('report_admissions.html',rows=rows,period=period)
 
 @app.route('/reports/fees')
