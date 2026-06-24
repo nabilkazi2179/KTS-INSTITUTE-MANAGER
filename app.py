@@ -30,21 +30,28 @@ BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
 # ── Database Config ──────────────────────────────────────────
 DATABASE_URL = os.environ.get('DATABASE_URL', '')
+DB_MODE = 'sqlite'
+DB_PATH = ':memory:'
 
 if DATABASE_URL and DATABASE_URL not in ('sqlite', ''):
-    # PostgreSQL (Vercel/production)
     try:
         import psycopg2
         from psycopg2.extras import RealDictCursor
         DB_MODE = 'postgres'
-        print(f'Using PostgreSQL database')
-    except ImportError:
+        print(f'Using PostgreSQL: {DATABASE_URL[:30]}...')
+    except ImportError as e:
         import sqlite3
         DB_MODE = 'sqlite'
         DB_PATH = ':memory:'
-        print(f'WARNING: psycopg2 not installed, using in-memory SQLite')
+        print(f'WARNING: psycopg2 import failed: {e}')
+        print(f'Falling back to in-memory SQLite')
+    except Exception as e:
+        import sqlite3
+        DB_MODE = 'sqlite'
+        DB_PATH = ':memory:'
+        print(f'WARNING: Database init failed: {e}')
+        print(f'Falling back to in-memory SQLite')
 else:
-    # SQLite (local development) or in-memory for Vercel demo
     import sqlite3
     DB_MODE = 'sqlite'
     if os.path.isdir(BASE_DIR) and os.access(BASE_DIR, os.W_OK):
@@ -915,13 +922,20 @@ def ensure_db():
 
 # ── Error handlers for debugging ─────────────────────────────
 import traceback as _traceback
+import sys
+
+@app.route('/health')
+def health():
+    return jsonify({'status': 'ok', 'db_mode': DB_MODE, 'database_url_set': bool(DATABASE_URL)})
 
 @app.errorhandler(500)
 def internal_error(error):
     error_trace = _traceback.format_exc()
+    sys.stderr.write(f'500 ERROR: {error_trace}\n')
     return '<h1>500 Error</h1><p>' + str(error) + '</p><pre style="background:#f8f8f8;padding:16px;overflow:auto;font-size:12px">' + error_trace + '</pre>', 500
 
 @app.errorhandler(Exception)
 def handle_exception(error):
     error_trace = _traceback.format_exc()
+    sys.stderr.write(f'EXCEPTION: {error_trace}\n')
     return '<h1>' + type(error).__name__ + '</h1><p>' + str(error) + '</p><pre style="background:#f8f8f8;padding:16px;overflow:auto;font-size:12px">' + error_trace + '</pre>', 500
