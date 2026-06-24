@@ -31,16 +31,21 @@ BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 # ── Database Config ──────────────────────────────────────────
 DATABASE_URL = os.environ.get('DATABASE_URL', '')
 
-if DATABASE_URL:
+if DATABASE_URL and DATABASE_URL != 'sqlite':
     # PostgreSQL (Vercel/production)
-    import psycopg2
-    from psycopg2.extras import RealDictCursor
-    DB_MODE = 'postgres'
+    try:
+        import psycopg2
+        from psycopg2.extras import RealDictCursor
+        DB_MODE = 'postgres'
+    except ImportError:
+        import sqlite3
+        DB_MODE = 'sqlite'
+        DB_PATH = ':memory:'
 else:
-    # SQLite (local development)
+    # SQLite (local development) or in-memory for Vercel demo
     import sqlite3
     DB_MODE = 'sqlite'
-    DB_PATH = os.path.join(BASE_DIR, 'kts_institute.db')
+    DB_PATH = os.path.join(BASE_DIR, 'kts_institute.db') if os.path.isdir(BASE_DIR) and os.access(BASE_DIR, os.W_OK) else ':memory:'
 
 def get_db():
     if DB_MODE == 'postgres':
@@ -86,7 +91,12 @@ app.config['MAX_CONTENT_LENGTH'] = 16*1024*1024
 ALLOWED = {'png','jpg','jpeg','gif','pdf','doc','docx'}
 
 # ── Init DB ──
+_db_initialized = False
 def init_db():
+    global _db_initialized
+    if _db_initialized and DB_MODE == 'sqlite' and DB_PATH == ':memory:':
+        return
+    _db_initialized = True
     db = get_db()
     cur = db.cursor()
     
