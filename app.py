@@ -37,15 +37,21 @@ if DATABASE_URL and DATABASE_URL not in ('sqlite', ''):
         import psycopg2
         from psycopg2.extras import RealDictCursor
         DB_MODE = 'postgres'
+        print(f'Using PostgreSQL database')
     except ImportError:
         import sqlite3
         DB_MODE = 'sqlite'
         DB_PATH = ':memory:'
+        print(f'WARNING: psycopg2 not installed, using in-memory SQLite')
 else:
     # SQLite (local development) or in-memory for Vercel demo
     import sqlite3
     DB_MODE = 'sqlite'
-    DB_PATH = os.path.join(BASE_DIR, 'kts_institute.db') if os.path.isdir(BASE_DIR) and os.access(BASE_DIR, os.W_OK) else ':memory:'
+    if os.path.isdir(BASE_DIR) and os.access(BASE_DIR, os.W_OK):
+        DB_PATH = os.path.join(BASE_DIR, 'kts_institute.db')
+    else:
+        DB_PATH = ':memory:'
+    print(f'Using SQLite: {DB_PATH}')
 
 def get_db():
     if DB_MODE == 'postgres':
@@ -906,3 +912,16 @@ def ensure_db():
     if not _db_ready:
         init_db()
         _db_ready = True
+
+# ── Error handlers for debugging ─────────────────────────────
+import traceback as _traceback
+
+@app.errorhandler(500)
+def internal_error(error):
+    error_trace = _traceback.format_exc()
+    return '<h1>500 Error</h1><p>' + str(error) + '</p><pre style="background:#f8f8f8;padding:16px;overflow:auto;font-size:12px">' + error_trace + '</pre>', 500
+
+@app.errorhandler(Exception)
+def handle_exception(error):
+    error_trace = _traceback.format_exc()
+    return '<h1>' + type(error).__name__ + '</h1><p>' + str(error) + '</p><pre style="background:#f8f8f8;padding:16px;overflow:auto;font-size:12px">' + error_trace + '</pre>', 500
