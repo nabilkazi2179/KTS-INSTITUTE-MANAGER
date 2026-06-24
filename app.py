@@ -952,7 +952,13 @@ import sys
 
 @app.route('/health')
 def health():
-    return jsonify({'status': 'ok', 'db_mode': DB_MODE, 'database_url_set': bool(DATABASE_URL)})
+    init_db()
+    try:
+        courses = q("SELECT * FROM courses")
+        admin = q("SELECT id, username FROM users WHERE username=?", ('admin',), one=True)
+        return jsonify({'status': 'ok', 'db_mode': DB_MODE, 'db_path': DB_PATH, 'courses_count': len(courses), 'admin': admin, 'sample_course': courses[0] if courses else None})
+    except Exception as e:
+        return jsonify({'status': 'error', 'error': str(e), 'db_mode': DB_MODE, 'db_path': DB_PATH})
 
 @app.errorhandler(500)
 def internal_error(error):
