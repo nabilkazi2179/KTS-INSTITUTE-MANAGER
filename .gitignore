@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+kts_institute.db
+.env
+*.db
+static/uploads/
+.venv/
+venv/

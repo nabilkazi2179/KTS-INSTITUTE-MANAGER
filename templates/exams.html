@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Exams{% endblock %}
+{% block content %}
+<div class="card">
+  <div class="card-title">&#128221; Examinations
+    <button onclick="document.getElementById('addForm').classList.toggle('show')" class="btn btn-primary btn-sm">+ Create Exam</button>
+  </div>
+  <div id="addForm" style="display:none;margin-bottom:16px;padding:16px;background:var(--bg);border-radius:8px">
+    <form method="POST" action="{{url_for('add_exam')}}" style="display:flex;gap:8px;flex-wrap:wrap">
+      <input type="text" name="exam_name" placeholder="Exam Name" required style="padding:7px;border:1px solid var(--brd);border-radius:7px;font-size:.85rem;flex:1;min-width:150px">
+      <select name="course_id" required style="padding:7px;border:1px solid var(--brd);border-radius:7px;font-size:.85rem">
+        <option value="">Course</option>
+        {% for c in courses %}<option value="c['id']">c['course_name']</option>{% endfor %}
+      </select>
+      <input type="date" name="exam_date" style="padding:7px;border:1px solid var(--brd);border-radius:7px;font-size:.85rem">
+      <input type="number" name="max_marks" placeholder="Max Marks" value="100" style="padding:7px;border:1px solid var(--brd);border-radius:7px;font-size:.85rem;width:90px">
+      <input type="number" name="passing_marks" placeholder="Passing" value="40" style="padding:7px;border:1px solid var(--brd);border-radius:7px;font-size:.85rem;width:80px">
+      <select name="exam_type" style="padding:7px;border:1px solid var(--brd);border-radius:7px;font-size:.85rem">
+        <option value="theory">Theory</option><option value="practical">Practical</option><option value="both">Both</option>
+      </select>
+      <button type="submit" class="btn btn-success btn-sm">Create</button>
+    </form>
+  </div>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Exam</th><th>Course</th><th>Date</th><th>Max</th><th>Pass</th><th>Results</th><th>Action</th></tr></thead>
+    <tbody>{% for e in exams %}<tr>
+      <td><strong>e['exam_name']</strong></td>
+      <td>e['course_name']</td>
+      <td>e['exam_date'] or 'N/A'</td>
+      <td>e['max_marks']</td>
+      <td>e['passing_marks']</td>
+      <td>e['results_entered'] entered</td>
+      <td><a href="{{url_for('exam_results',eid=e['id'])}}" class="btn btn-sm btn-primary">Results</a></td>
+    </tr>{% endfor %}</tbody>
+  </table></div>
+</div>
+{% endblock %}

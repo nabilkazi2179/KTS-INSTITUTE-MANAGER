@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Fees{% endblock %}
+{% block content %}
+<div class="stats-grid" style="grid-template-columns:1fr 1fr">
+  <div class="stat"><div class="ico s">&#128176;</div><div class="info"><div class="val">{{"{:,.0f}".format(tc)}}</div><div class="lbl">Total Collected</div></div></div>
+  <div class="stat"><div class="ico d">&#9203;</div><div class="info"><div class="val">{{"{:,.0f}".format(tp)}}</div><div class="lbl">Total Pending</div></div></div>
+</div>
+<div class="card">
+  <div class="card-title">&#128176; Fee Status <a href="{{url_for('export_report',rtype=fees)}}" class="btn btn-sm btn-outline">&#128229; Export CSV</a></div>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Student ID</th><th>Name</th><th>Course</th><th>Total Fee</th><th>Paid</th><th>Pending</th><th>Action</th></tr></thead>
+    <tbody>{% for f in fee_data %}<tr>
+      <td>f['student_id']</td>
+      <td>f['full_name']</td>
+      <td>f['course_name'] or 'N/A'</td>
+      <td>{{"{:,.0f}".format(f['total_fee'] or 0)}}</td>
+      <td style="color:var(--s)">{{"{:,.0f}".format(f['paid'] or 0)}}</td>
+      <td style="color:var(--d)">{{"{:,.0f}".format((f['total_fee'] or 0) - (f['paid'] or 0))}}</td>
+      <td><a href="{{url_for('view_student',id=f['id'])}}" class="btn btn-sm btn-outline">Pay</a></td>
+    </tr>{% endfor %}</tbody>
+  </table></div>
+</div>
+{% endblock %}

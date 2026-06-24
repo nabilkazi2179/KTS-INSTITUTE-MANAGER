@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Verify Certificate{% endblock %}
+{% block content %}
+<div style="max-width:500px;margin:40px auto">
+  <div class="card" style="text-align:center">
+    <h2 style="font-size:1.2rem;margin-bottom:6px">&#128269; Certificate Verification</h2>
+    <p style="color:var(--m);font-size:.85rem;margin-bottom:20px">Enter Certificate Number or Student ID</p>
+    <form method="POST">
+      <input type="text" name="search_term" placeholder="e.g. KTS-CERT-2026-00001" required style="width:100%;padding:10px 14px;border:1px solid var(--brd);border-radius:8px;font-size:.9rem;margin-bottom:12px;text-align:center">
+      <button type="submit" class="btn btn-primary" style="width:100%">Verify</button>
+    </form>
+    {% if result %}
+    <div style="margin-top:20px;text-align:left;padding:16px;background:#d1fae5;border-radius:8px;border:1px solid #a7f3d0">
+      <p style="color:#065f46;font-weight:600;margin-bottom:8px">&#10004; Valid Certificate</p>
+      <p style="font-size:.85rem"><strong>Name:</strong> result['full_name']</p>
+      <p style="font-size:.85rem"><strong>Student ID:</strong> result['student_id']</p>
+      <p style="font-size:.85rem"><strong>Course:</strong> result['course_name']</p>
+      <p style="font-size:.85rem"><strong>Grade:</strong> result['grade'] or 'N/A'</p>
+      <p style="font-size:.85rem"><strong>Percentage:</strong> result['percentage'] or 0%</p>
+      <p style="font-size:.85rem"><strong>Issued:</strong> result['issue_date'] or 'N/A'</p>
+      <p style="font-size:.85rem"><strong>Certificate No:</strong> result['certificate_no']</p>
+    </div>
+    {% elif request.method=='POST' %}
+    <div style="margin-top:20px;padding:16px;background:#fee2e2;border-radius:8px;border:1px solid #fecaca">
+      <p style="color:#991b1b;font-weight:600">&#10008; Certificate not found</p>
+      <p style="font-size:.8rem;color:#991b1b">Please check the number and try again.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

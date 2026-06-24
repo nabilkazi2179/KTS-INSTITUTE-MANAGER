@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Trainers{% endblock %}
+{% block content %}
+<div class="card">
+  <div class="card-title">&#128104;&#8205;&#127979; Trainers
+    <button onclick="document.getElementById('addForm').classList.toggle('show')" class="btn btn-primary btn-sm">+ Add Trainer</button>
+  </div>
+  <div id="addForm" style="display:none;margin-bottom:16px;padding:16px;background:var(--bg);border-radius:8px">
+    <form method="POST" action="{{url_for('add_trainer')}}" style="display:flex;gap:8px;flex-wrap:wrap">
+      <input type="text" name="full_name" placeholder="Full Name" required style="padding:7px;border:1px solid var(--brd);border-radius:7px;font-size:.85rem;flex:1;min-width:150px">
+      <input type="email" name="email" placeholder="Email" style="padding:7px;border:1px solid var(--brd);border-radius:7px;font-size:.85rem;flex:1;min-width:150px">
+      <input type="text" name="phone" placeholder="Phone" style="padding:7px;border:1px solid var(--brd);border-radius:7px;font-size:.85rem;width:120px">
+      <input type="text" name="qualification" placeholder="Qualification" style="padding:7px;border:1px solid var(--brd);border-radius:7px;font-size:.85rem;flex:1;min-width:120px">
+      <input type="text" name="experience" placeholder="Experience" style="padding:7px;border:1px solid var(--brd);border-radius:7px;font-size:.85rem;width:100px">
+      <input type="number" name="salary" placeholder="Salary" style="padding:7px;border:1px solid var(--brd);border-radius:7px;font-size:.85rem;width:100px">
+      <input type="text" name="specialization" placeholder="Specialization" style="padding:7px;border:1px solid var(--brd);border-radius:7px;font-size:.85rem;flex:1;min-width:120px">
+      <input type="date" name="joining_date" style="padding:7px;border:1px solid var(--brd);border-radius:7px;font-size:.85rem">
+      <button type="submit" class="btn btn-success btn-sm">Add</button>
+    </form>
+  </div>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Qualification</th><th>Experience</th><th>Salary</th></tr></thead>
+    <tbody>{% for t in trainers %}<tr>
+      <td><strong>t['full_name']</strong></td>
+      <td>t['email'] or 'N/A'</td>
+      <td>t['phone'] or 'N/A'</td>
+      <td>t['qualification'] or 'N/A'</td>
+      <td>t['experience'] or 'N/A'</td>
+      <td>{{"{:,.0f}".format(t['salary'] or 0)}}</td>
+    </tr>{% endfor %}</tbody>
+  </table></div>
+</div>
+{% endblock %}

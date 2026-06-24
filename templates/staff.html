@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Staff Management{% endblock %}
+{% block content %}
+<div class="card">
+  <div class="card-title">&#128101; Staff &amp; Users
+    <button onclick="document.getElementById('addForm').classList.toggle('show')" class="btn btn-primary btn-sm">+ Add Staff</button>
+  </div>
+  <div id="addForm" style="display:none;margin-bottom:16px;padding:16px;background:var(--bg);border-radius:8px">
+    <form method="POST" action="{{url_for('add_staff')}}" style="display:flex;gap:8px;flex-wrap:wrap">
+      <input type="text" name="full_name" placeholder="Full Name" required style="padding:7px;border:1px solid var(--brd);border-radius:7px;font-size:.85rem;flex:1;min-width:150px">
+      <input type="text" name="username" placeholder="Username" style="padding:7px;border:1px solid var(--brd);border-radius:7px;font-size:.85rem;width:130px">
+      <input type="email" name="email" placeholder="Email" style="padding:7px;border:1px solid var(--brd);border-radius:7px;font-size:.85rem;flex:1;min-width:150px">
+      <input type="text" name="phone" placeholder="Phone" style="padding:7px;border:1px solid var(--brd);border-radius:7px;font-size:.85rem;width:120px">
+      <select name="role" style="padding:7px;border:1px solid var(--brd);border-radius:7px;font-size:.85rem">
+        <option value="staff">Staff</option>
+        <option value="admin">Admin</option>
+        <option value="accountant">Accountant</option>
+        <option value="counselor">Counselor</option>
+        <option value="trainer">Trainer</option>
+      </select>
+      <button type="submit" class="btn btn-success btn-sm">Add</button>
+    </form>
+  </div>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Name</th><th>Username</th><th>Email</th><th>Phone</th><th>Role</th><th>Status</th></tr></thead>
+    <tbody>{% for u in users %}<tr>
+      <td><strong>u['full_name']</strong></td>
+      <td>u['username']</td>
+      <td>u['email'] or ''</td>
+      <td>u['phone'] or ''</td>
+      <td><span class="badge active">u['role']</span></td>
+      <td><span class="badge u['is_active']">u['is_active']</span></td>
+    </tr>{% endfor %}</tbody>
+  </table></div>
+</div>
+{% endblock %}

@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Certificates{% endblock %}
+{% block content %}
+<div class="card">
+  <div class="card-title">&#127942; Certificates</div>
+  <form method="POST" action="{{url_for('generate_certificate')}}" style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+    <select name="student_id" required style="padding:7px;border:1px solid var(--brd);border-radius:7px;font-size:.85rem;flex:1;min-width:200px">
+      <option value="">Select Student</option>
+      {% for s in students %}<option value="s['id']">s['full_name'] (s['student_id']) - s['course_name']</option>{% endfor %}
+    </select>
+    <button type="submit" class="btn btn-primary btn-sm">&#127942; Generate Certificate</button>
+  </form>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Cert No</th><th>Student</th><th>Course</th><th>Grade</th><th>%</th><th>Date</th><th>Action</th></tr></thead>
+    <tbody>{% for c in certificates %}<tr>
+      <td><strong>c['certificate_no']</strong></td>
+      <td>c['full_name'] (c['student_id'])</td>
+      <td>c['course_name']</td>
+      <td>c['grade'] or 'N/A'</td>
+      <td>c['percentage'] or 0%</td>
+      <td>c['issue_date'] or 'N/A'</td>
+      <td><a href="{{url_for('view_certificate',cid=c['id'])}}" class="btn btn-sm btn-outline">View</a></td>
+    </tr>{% endfor %}</tbody>
+  </table></div>
+</div>
+{% endblock %}

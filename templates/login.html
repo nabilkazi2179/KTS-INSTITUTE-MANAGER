@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{{app_name}} - Login</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:linear-gradient(135deg,#312e81,#1e1b4b);min-height:100vh;display:flex;align-items:center;justify-content:center}
+.box{background:#fff;border-radius:16px;padding:40px;width:100%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.box h1{text-align:center;color:#312e81;font-size:1.4rem;margin-bottom:3px}
+.box .sub{text-align:center;color:#64748b;font-size:.8rem;margin-bottom:28px}
+.fg{margin-bottom:14px}
+.fg label{display:block;font-size:.8rem;font-weight:600;color:#374151;margin-bottom:3px}
+.fg input{width:100%;padding:9px 13px;border:1px solid #d1d5db;border-radius:7px;font-size:.95rem}
+.fg input:focus{outline:none;border-color:#4f46e5;box-shadow:0 0 0 3px rgba(79,70,229,.15)}
+.btn{width:100%;padding:11px;background:linear-gradient(135deg,#4f46e5,#6366f1);color:#fff;border:none;border-radius:7px;font-size:.95rem;font-weight:600;cursor:pointer;margin-top:6px}
+.btn:hover{box-shadow:0 4px 12px rgba(79,70,229,.4)}
+.alert{padding:9px 13px;border-radius:7px;margin-bottom:14px;font-size:.82rem}
+.alert-danger{background:#fee2e2;color:#991b1b;border:1px solid #fecaca}
+.footer{text-align:center;margin-top:16px;color:#94a3b8;font-size:.72rem}
+</style></head><body>
+<div class="box">
+  <h1>&#127979; {{institute}}</h1>
+  <div class="sub">Institute Management System</div>
+  {% with msgs=get_flashed_messages(with_categories=true) %}{% if msgs %}
+    {% for cat,msg in msgs %}<div class="alert alert-{{cat}}">{{msg}}</div>{% endfor %}
+  {% endif %}{% endwith %}
+  <form method="POST">
+    <div class="fg"><label>Username</label><input type="text" name="username" required placeholder="Enter username" autofocus></div>
+    <div class="fg"><label>Password</label><input type="password" name="password" required placeholder="Enter password"></div>
+    <button type="submit" class="btn">Sign In</button>
+  </form>
+  <div class="footer">Default login: admin / admin123</div>
+</div></body></html>

@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Add Student{% endblock %}
+{% block content %}
+<div class="card">
+  <div class="card-title">&#127891; New Student Admission</div>
+  <form method="POST" enctype="multipart/form-data">
+    <h3 style="font-size:.9rem;color:var(--p);margin-bottom:12px;border-bottom:1px solid var(--brd);padding-bottom:6px">Personal Details</h3>
+    <div class="form-grid">
+      <div class="fg"><label>Full Name *</label><input type="text" name="full_name" required></div>
+      <div class="fg"><label>Guardian Name</label><input type="text" name="guardian_name"></div>
+      <div class="fg"><label>Date of Birth</label><input type="date" name="dob"></div>
+      <div class="fg"><label>Gender</label><select name="gender"><option value="">Select</option><option>Male</option><option>Female</option><option>Other</option></select></div>
+      <div class="fg"><label>Mobile *</label><input type="text" name="mobile" required></div>
+      <div class="fg"><label>WhatsApp</label><input type="text" name="whatsapp"></div>
+      <div class="fg"><label>Email</label><input type="email" name="email"></div>
+      <div class="fg"><label>Qualification</label><input type="text" name="qualification"></div>
+      <div class="fg"><label>Aadhaar/ID Number</label><input type="text" name="id_number"></div>
+    </div>
+    <h3 style="font-size:.9rem;color:var(--p);margin:16px 0 12px;border-bottom:1px solid var(--brd);padding-bottom:6px">Address</h3>
+    <div class="form-grid">
+      <div class="fg" style="grid-column:1/-1"><label>Address</label><textarea name="address"></textarea></div>
+      <div class="fg"><label>City</label><input type="text" name="city"></div>
+      <div class="fg"><label>State</label><input type="text" name="state"></div>
+      <div class="fg"><label>Country</label><input type="text" name="country" value="India"></div>
+    </div>
+    <h3 style="font-size:.9rem;color:var(--p);margin:16px 0 12px;border-bottom:1px solid var(--brd);padding-bottom:6px">Course &amp; Batch</h3>
+    <div class="form-grid">
+      <div class="fg"><label>Course *</label>
+        <select name="course_id" id="courseSelect" required onchange="loadBatches(this.value)">
+          <option value="">Select Course</option>
+          {% for c in courses %}<option value="c['id']">c['course_name'] (c['course_code'])</option>{% endfor %}
+        </select>
+      </div>
+      <div class="fg"><label>Batch</label>
+        <select name="batch_id" id="batchSelect"><option value="">Select Batch</option></select>
+      </div>
+      <div class="fg"><label>Joining Date</label><input type="date" name="joining_date" value="{{now.strftime('%Y-%m-%d')}}"></div>
+      <div class="fg"><label>Counselor</label>
+        <select name="counselor_id"><option value="">Select</option>
+          {% for co in counselors %}<option value="co['id']">co['full_name']</option>{% endfor %}
+        </select>
+      </div>
+    </div>
+    <h3 style="font-size:.9rem;color:var(--p);margin:16px 0 12px;border-bottom:1px solid var(--brd);padding-bottom:6px">Fee Structure</h3>
+    <div class="form-grid">
+      <div class="fg"><label>Registration Fee</label><input type="number" name="registration_fee" value="500" step="0.01"></div>
+      <div class="fg"><label>Admission Fee</label><input type="number" name="admission_fee" value="1000" step="0.01"></div>
+      <div class="fg"><label>Course Fee</label><input type="number" name="course_fee" value="0" step="0.01"></div>
+      <div class="fg"><label>Exam Fee</label><input type="number" name="exam_fee" value="500" step="0.01"></div>
+      <div class="fg"><label>Certificate Fee</label><input type="number" name="certificate_fee" value="500" step="0.01"></div>
+      <div class="fg"><label>Misc Fee</label><input type="number" name="misc_fee" value="0" step="0.01"></div>
+    </div>
+    <h3 style="font-size:.9rem;color:var(--p);margin:16px 0 12px;border-bottom:1px solid var(--brd);padding-bottom:6px">Documents</h3>
+    <div class="form-grid">
+      <div class="fg"><label>Photograph</label><input type="file" name="photo" accept="image/*"></div>
+      <div class="fg"><label>ID Proof</label><input type="file" name="id_proof" accept="image/*,.pdf"></div>
+      <div class="fg" style="grid-column:1/-1"><label>Remarks</label><textarea name="remarks"></textarea></div>
+    </div>
+    <div style="margin-top:16px;display:flex;gap:8px">
+      <button type="submit" class="btn btn-primary">&#10004; Admit Student</button>
+      <a href="{{url_for('students_list')}}" class="btn btn-outline">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+function loadBatches(cid){
+  var b=document.getElementById('batchSelect');b.innerHTML='<option value="">Select Batch</option>';
+  if(!cid) return;
+  fetch('/batches/get/'+cid).then(function(r){return r.json()}).then(function(d){
+    d.forEach(function(x){var o=document.createElement('option');o.value=x.id;o.text=x.batch_name;b.appendChild(o)});
+  });
+}
+</script>
+{% endblock %}

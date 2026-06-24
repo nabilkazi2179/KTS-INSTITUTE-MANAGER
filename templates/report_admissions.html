@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Admission Report{% endblock %}
+{% block content %}
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+  <h3>&#128202; Admission Report</h3>
+  <div style="display:flex;gap:6px">
+    <a href="?period=daily" class="btn btn-sm {% if period=='daily' %}btn-primary{% else %}btn-outline{% endif %}">Daily</a>
+    <a href="?period=monthly" class="btn btn-sm {% if period=='monthly' %}btn-primary{% else %}btn-outline{% endif %}">Monthly</a>
+    <a href="{{url_for('reports')}}" class="btn btn-outline btn-sm">&#8592; Back</a>
+  </div>
+</div>
+<div class="card">
+  <div class="chart-bar" style="height:250px">
+    {% for r in rows %}
+    {% set h = (r['count'] or 0)*20+4 %}
+    <div class="bar" style="height:{{h}}px"><span class="val">r['count']</span><span class="lbl">r['period']</span></div>
+    {% endfor %}
+    {% if not rows %}<div style="color:var(--m);text-align:center;width:100%;padding:40px">No data</div>{% endif %}
+  </div>
+</div>
+<div class="card">
+  <div class="table-wrap"><table>
+    <thead><tr><th>Period</th><th>Admissions</th></tr></thead>
+    <tbody>{% for r in rows %}<tr><td>r['period']</td><td><strong>r['count']</strong></td></tr>{% endfor %}</tbody>
+  </table></div>
+</div>
+{% endblock %}

@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Courses{% endblock %}
+{% block content %}
+<div class="card">
+  <div class="card-title">&#128218; Courses
+    <button onclick="document.getElementById('addForm').classList.toggle('show')" class="btn btn-primary btn-sm">+ Add Course</button>
+  </div>
+  <div id="addForm" style="display:none;margin-bottom:16px;padding:16px;background:var(--bg);border-radius:8px">
+    <form method="POST" action="{{url_for('add_course')}}" style="display:flex;gap:8px;flex-wrap:wrap">
+      <input type="text" name="course_code" placeholder="Code" required style="padding:7px;border:1px solid var(--brd);border-radius:7px;font-size:.85rem;width:80px">
+      <input type="text" name="course_name" placeholder="Course Name" required style="padding:7px;border:1px solid var(--brd);border-radius:7px;font-size:.85rem;flex:1;min-width:150px">
+      <input type="text" name="duration" placeholder="Duration" style="padding:7px;border:1px solid var(--brd);border-radius:7px;font-size:.85rem;width:110px">
+      <input type="number" name="fees" placeholder="Fees" style="padding:7px;border:1px solid var(--brd);border-radius:7px;font-size:.85rem;width:100px">
+      <input type="text" name="description" placeholder="Description" style="padding:7px;border:1px solid var(--brd);border-radius:7px;font-size:.85rem;flex:1;min-width:150px">
+      <button type="submit" class="btn btn-success btn-sm">Add</button>
+    </form>
+  </div>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Code</th><th>Name</th><th>Duration</th><th>Fees</th><th>Status</th><th>Actions</th></tr></thead>
+    <tbody>{% for c in courses %}<tr>
+      <td><strong>c['course_code']</strong></td>
+      <td>c['course_name']</td>
+      <td>c['duration'] or 'N/A'</td>
+      <td>{{"{:,.0f}".format(c['fees'] or 0)}}</td>
+      <td><span class="badge c['is_active']">c['is_active']</span></td>
+      <td><form method="POST" action="{{url_for('toggle_course',id=c['id'])}}" style="display:inline"><button class="btn btn-sm btn-outline">Toggle</button></form></td>
+    </tr>{% endfor %}</tbody>
+  </table></div>
+</div>
+{% endblock %}

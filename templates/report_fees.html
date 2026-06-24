@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Fee Report{% endblock %}
+{% block content %}
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+  <h3>&#128176; Fee Report</h3>
+  <a href="{{url_for('reports')}}" class="btn btn-outline btn-sm">&#8592; Back</a>
+</div>
+<div class="card">
+  <div class="table-wrap"><table>
+    <thead><tr><th>Student ID</th><th>Name</th><th>Course</th><th>Total Fee</th><th>Paid</th><th>Pending</th></tr></thead>
+    <tbody>{% for r in rows %}<tr>
+      <td>r['student_id']</td>
+      <td>r['full_name']</td>
+      <td>r['course_name'] or 'N/A'</td>
+      <td>{{"{:,.0f}".format(r['total_fee'] or 0)}}</td>
+      <td style="color:var(--s)">{{"{:,.0f}".format(r['paid'] or 0)}}</td>
+      <td style="color:var(--d)">{{"{:,.0f}".format(r['pending'] or 0)}}</td>
+    </tr>{% endfor %}</tbody>
+  </table></div>
+</div>
+{% endblock %}

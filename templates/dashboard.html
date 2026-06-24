@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<div class="stats-grid">
+  <div class="stat"><div class="ico p">&#127891;</div><div class="info"><div class="val">{{ts}}</div><div class="lbl">Total Students</div></div></div>
+  <div class="stat"><div class="ico s">&#9989;</div><div class="info"><div class="val">{{acs}}</div><div class="lbl">Active Students</div></div></div>
+  <div class="stat"><div class="ico w">&#128218;</div><div class="info"><div class="val">{{tc}}</div><div class="lbl">Courses</div></div></div>
+  <div class="stat"><div class="ico p">&#128203;</div><div class="info"><div class="val">{{tb}}</div><div class="lbl">Active Batches</div></div></div>
+  <div class="stat"><div class="ico s">&#128176;</div><div class="info"><div class="val">{{"{:,.0f}".format(tcol)}}</div><div class="lbl">Total Collected</div></div></div>
+  <div class="stat"><div class="ico w">&#9203;</div><div class="info"><div class="val">{{"{:,.0f}".format(pf)}}</div><div class="lbl">Pending Fees</div></div></div>
+  <div class="stat"><div class="ico p">&#127942;</div><div class="info"><div class="val">{{ci}}</div><div class="lbl">Certificates</div></div></div>
+  <div class="stat"><div class="ico s">&#128104;&#8205;&#127979;</div><div class="info"><div class="val">{{tt}}</div><div class="lbl">Trainers</div></div></div>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+  <div class="card"><div class="card-title">&#128176; Fee Collection (Last 6 Months)</div>
+    <div class="chart-bar">
+      {% for m in mf|reverse %}
+      {% set h = ((m['total'] or 0)/1000)*2+4 %}
+      <div class="bar" style="height:{{h}}px"><span class="val">{{"{:,.0f}".format(m['total'] or 0)}}</span><span class="lbl">{{m['month']}}</span></div>
+      {% endfor %}
+      {% if not mf %}<div style="color:var(--m);text-align:center;width:100%;padding:40px">No fee data yet</div>{% endif %}
+    </div>
+  </div>
+  <div class="card"><div class="card-title">&#128218; Course Enrollment</div>
+    <div class="chart-bar" style="height:200px">
+      {% for c in ce %}
+      {% set h2 = (c['count'] or 0)+1 %}
+      <div class="bar" style="height:{{h2*15}}px;min-width:40px"><span class="val">{{c['count']}}</span><span class="lbl">{{c['course_name'][:10]}}</span></div>
+      {% endfor %}
+      {% if not ce %}<div style="color:var(--m);text-align:center;width:100%;padding:40px">No data yet</div>{% endif %}
+    </div>
+  </div>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+  <div class="card"><div class="card-title">&#127381; Recent Admissions <a href="{{url_for('students_list')}}" class="btn btn-sm btn-outline">View All</a></div>
+    <div class="table-wrap"><table><thead><tr><th>ID</th><th>Name</th><th>Course</th><th>Date</th></tr></thead><tbody>
+      {% for s in rs %}<tr>
+        <td><a href="{{url_for('view_student',id=s['id'])}}">{{s['student_id']}}</a></td>
+        <td>{{s['full_name']}}</td>
+        <td>{{s['course_name'] or 'N/A'}}</td>
+        <td>{{s['joining_date']}}</td>
+      </tr>{% endfor %}
+      {% if not rs %}<tr><td colspan="4" style="text-align:center;color:var(--m)">No students yet</td></tr>{% endif %}
+    </tbody></table></div>
+  </div>
+  <div class="card"><div class="card-title">&#128221; Upcoming Exams <a href="{{url_for('exams')}}" class="btn btn-sm btn-outline">View All</a></div>
+    {% if ue %}<div class="table-wrap"><table><thead><tr><th>Exam</th><th>Course</th><th>Date</th></tr></thead><tbody>{% for e in ue %}<tr><td>{{e['exam_name']}}</td><td>{{e['course_name']}}</td><td>{{e['exam_date']}}</td></tr>{% endfor %}</tbody></table></div>
+    {% else %}<div style="text-align:center;color:var(--m);padding:20px">No upcoming exams</div>{% endif %}
+  </div>
+</div>
+{% endblock %}
