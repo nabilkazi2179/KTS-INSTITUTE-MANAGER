@@ -72,14 +72,19 @@ def get_db():
         db.row_factory = sqlite3.Row
         return db
 
-def q(query, args=(), one=False):
+def q(query, args=None, one=False):
     # Convert SQLite ? placeholders to PostgreSQL %s
     if DB_MODE == 'postgres':
         query = query.replace('?', '%s')
+    if args is None:
+        args = ()
     db = get_db()
     try:
         cur = db.cursor()
-        cur.execute(query, args)
+        if args:
+            cur.execute(query, args)
+        else:
+            cur.execute(query)
         rows = cur.fetchall()
         return rows[0] if one and rows else rows
     finally:
@@ -228,9 +233,10 @@ def init_db():
     db.commit()
     
     # Default admin
-    admin = q("SELECT id FROM users WHERE username=?", one=True)
+    cur2 = db.cursor()
+    cur2.execute("SELECT id FROM users WHERE username=?", ('admin',))
+    admin = cur2.fetchone()
     if not admin:
-        cur2 = db.cursor()
         cur2.execute("INSERT INTO users (username,password_hash,full_name,email,role) VALUES (?,?,?,?,?)",
             ('admin', generate_password_hash('admin123'), 'Super Admin', 'admin@kts.com', 'super_admin'))
     
