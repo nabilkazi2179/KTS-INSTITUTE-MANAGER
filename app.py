@@ -114,46 +114,32 @@ def init_db():
     db = get_db()
     cur = db.cursor()
     AID = 'SERIAL PRIMARY KEY' if DB_MODE == 'postgres' else 'INTEGER PRIMARY KEY AUTOINCREMENT'
-    NOW = 'CURRENT_TIMESTAMP' if DB_MODE == 'postgres' else "datetime('now')"
-    CDATE = 'CURRENT_DATE' if DB_MODE == 'postgres' else "date('now')"
     
-    # Drop old tables to ensure clean schema (only for sqlite file mode)
+    # Drop old tables to ensure clean schema
     if DB_MODE == 'sqlite':
         for t in ['notifications','audit_logs','trainers','certificates','exam_results','exams','attendance','fee_payments','fee_structures','students','batches','courses','users']:
             cur.execute(f'DROP TABLE IF EXISTS {t}')
     
     # Users
-    if DB_MODE == 'postgres':
-        cur.execute('''CREATE TABLE IF NOT EXISTS users (
-        id SERIAL PRIMARY KEY, username TEXT UNIQUE NOT NULL,
+    cur.execute(f'''CREATE TABLE IF NOT EXISTS users (
+        id {AID}, username TEXT UNIQUE NOT NULL,
         password_hash TEXT NOT NULL, full_name TEXT NOT NULL,
         email TEXT, phone TEXT, role TEXT NOT NULL DEFAULT 'student',
         is_active INTEGER DEFAULT 1,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
-    else:
-        cur.execute('''CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE NOT NULL,
-        password_hash TEXT NOT NULL, full_name TEXT NOT NULL,
-        email TEXT, phone TEXT, role TEXT NOT NULL DEFAULT 'student',
-        is_active INTEGER DEFAULT 1,
-        created_at TIMESTAMP DEFAULT datetime('now'), updated_at TIMESTAMP DEFAULT datetime('now'))''')
-    if DB_MODE == 'postgres':
-        cur.execute('''CREATE TABLE IF NOT EXISTS courses (
-        id SERIAL PRIMARY KEY, course_code TEXT UNIQUE NOT NULL,
+        created_at TEXT, updated_at TEXT)''')
+    # Courses
+    cur.execute(f'''CREATE TABLE IF NOT EXISTS courses (
+        id {AID}, course_code TEXT UNIQUE NOT NULL,
         course_name TEXT NOT NULL, duration TEXT, fees REAL DEFAULT 0,
         description TEXT, syllabus TEXT, certificate_template TEXT,
-        is_active INTEGER DEFAULT 1, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
-    else:
-        cur.execute('''CREATE TABLE IF NOT EXISTS courses (
-        id INTEGER PRIMARY KEY AUTOINCREMENT, course_code TEXT UNIQUE NOT NULL,
-        course_name TEXT NOT NULL, duration TEXT, fees REAL DEFAULT 0,
-        description TEXT, syllabus TEXT, certificate_template TEXT,
-        is_active INTEGER DEFAULT 1, created_at TIMESTAMP DEFAULT datetime('now'))''')
+        is_active INTEGER DEFAULT 1, created_at TEXT)''')
+    # Batches
     cur.execute(f'''CREATE TABLE IF NOT EXISTS batches (
         id {AID}, batch_name TEXT NOT NULL,
         course_id INTEGER, trainer_id INTEGER, timing TEXT,
         start_date TEXT, end_date TEXT, max_strength INTEGER DEFAULT 30,
-        status TEXT DEFAULT 'active', created_at TIMESTAMP DEFAULT {NOW})''')
+        status TEXT DEFAULT 'active', created_at TEXT)''')
+    # Students
     cur.execute(f'''CREATE TABLE IF NOT EXISTS students (
         id {AID}, student_id TEXT UNIQUE NOT NULL,
         full_name TEXT NOT NULL, guardian_name TEXT, dob TEXT, gender TEXT,
@@ -162,51 +148,60 @@ def init_db():
         qualification TEXT, photo TEXT, id_proof TEXT, joining_date TEXT,
         course_id INTEGER, batch_id INTEGER, counselor_id INTEGER,
         remarks TEXT, user_id INTEGER, status TEXT DEFAULT 'active',
-        created_at TIMESTAMP DEFAULT {NOW}, updated_at TIMESTAMP DEFAULT {NOW})''')
+        created_at TEXT, updated_at TEXT)''')
+    # Fee Structures
     cur.execute(f'''CREATE TABLE IF NOT EXISTS fee_structures (
         id {AID}, student_id INTEGER,
         registration_fee REAL DEFAULT 0, admission_fee REAL DEFAULT 0,
         course_fee REAL DEFAULT 0, exam_fee REAL DEFAULT 0,
         certificate_fee REAL DEFAULT 0, misc_fee REAL DEFAULT 0,
-        total_fee REAL DEFAULT 0, created_at TIMESTAMP DEFAULT {NOW})''')
+        total_fee REAL DEFAULT 0, created_at TEXT)''')
+    # Fee Payments
     cur.execute(f'''CREATE TABLE IF NOT EXISTS fee_payments (
         id {AID}, student_id INTEGER,
         receipt_no TEXT, amount REAL NOT NULL, payment_method TEXT DEFAULT 'Cash',
-        payment_date TEXT DEFAULT {CDATE}, installment_no INTEGER,
-        remarks TEXT, collected_by INTEGER, created_at TIMESTAMP DEFAULT {NOW})''')
+        payment_date TEXT, installment_no INTEGER,
+        remarks TEXT, collected_by INTEGER, created_at TEXT)''')
+    # Attendance
     cur.execute(f'''CREATE TABLE IF NOT EXISTS attendance (
         id {AID}, student_id INTEGER, batch_id INTEGER,
         attendance_date TEXT, status TEXT DEFAULT 'present', remarks TEXT,
-        marked_by INTEGER, created_at TIMESTAMP DEFAULT {NOW})''')
+        marked_by INTEGER, created_at TEXT)''')
+    # Exams
     cur.execute(f'''CREATE TABLE IF NOT EXISTS exams (
         id {AID}, exam_name TEXT NOT NULL,
         course_id INTEGER, batch_id INTEGER, exam_date TEXT,
         max_marks REAL DEFAULT 100, passing_marks REAL DEFAULT 40,
-        exam_type TEXT DEFAULT 'theory', created_at TIMESTAMP DEFAULT {NOW})''')
+        exam_type TEXT DEFAULT 'theory', created_at TEXT)''')
+    # Exam Results
     cur.execute(f'''CREATE TABLE IF NOT EXISTS exam_results (
         id {AID}, exam_id INTEGER, student_id INTEGER,
         theory_marks REAL, practical_marks REAL, total_marks REAL,
         percentage REAL, grade TEXT, status TEXT, remarks TEXT,
-        created_at TIMESTAMP DEFAULT {NOW})''')
+        created_at TEXT)''')
+    # Certificates
     cur.execute(f'''CREATE TABLE IF NOT EXISTS certificates (
         id {AID}, certificate_no TEXT UNIQUE NOT NULL,
         student_id INTEGER, course_id INTEGER, grade TEXT, percentage REAL,
-        completion_date TEXT, issue_date TEXT DEFAULT {CDATE},
+        completion_date TEXT, issue_date TEXT,
         template_used TEXT, qr_code TEXT, is_revoked INTEGER DEFAULT 0,
-        created_at TIMESTAMP DEFAULT {NOW})''')
+        created_at TEXT)''')
+    # Trainers
     cur.execute(f'''CREATE TABLE IF NOT EXISTS trainers (
         id {AID}, user_id INTEGER,
         qualification TEXT, experience TEXT, salary REAL DEFAULT 0,
         specialization TEXT, joining_date TEXT, is_active INTEGER DEFAULT 1)''')
+    # Audit Logs
     cur.execute(f'''CREATE TABLE IF NOT EXISTS audit_logs (
-        id user_id INTEGER, action TEXT,
+        id {AID}, user_id INTEGER, action TEXT,
         table_name TEXT, record_id INTEGER, details TEXT,
-        created_at TIMESTAMP DEFAULT {NOW})''')
+        created_at TEXT)''')
+    # Notifications
     cur.execute(f'''CREATE TABLE IF NOT EXISTS notifications (
         id {AID}, recipient_id INTEGER,
         recipient_type TEXT, type TEXT, subject TEXT, message TEXT,
         channel TEXT DEFAULT 'system', is_sent INTEGER DEFAULT 0,
-        sent_at TIMESTAMP, created_at TIMESTAMP DEFAULT {NOW})''')
+        sent_at TEXT, created_at TEXT)''')
     
     db.commit()
     # Admin
