@@ -123,17 +123,32 @@ def init_db():
             cur.execute(f'DROP TABLE IF EXISTS {t}')
     
     # Users
-    cur.execute(f'''CREATE TABLE IF NOT EXISTS users (
-        id {AID}, username TEXT UNIQUE NOT NULL,
+    if DB_MODE == 'postgres':
+        cur.execute('''CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY, username TEXT UNIQUE NOT NULL,
         password_hash TEXT NOT NULL, full_name TEXT NOT NULL,
         email TEXT, phone TEXT, role TEXT NOT NULL DEFAULT 'student',
         is_active INTEGER DEFAULT 1,
-        created_at TIMESTAMP DEFAULT {NOW}, updated_at TIMESTAMP DEFAULT {NOW})''')
-    cur.execute(f'''CREATE TABLE IF NOT EXISTS courses (
-        id {AID}, course_code TEXT UNIQUE NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
+    else:
+        cur.execute('''CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL, full_name TEXT NOT NULL,
+        email TEXT, phone TEXT, role TEXT NOT NULL DEFAULT 'student',
+        is_active INTEGER DEFAULT 1,
+        created_at TIMESTAMP DEFAULT datetime('now'), updated_at TIMESTAMP DEFAULT datetime('now'))''')
+    if DB_MODE == 'postgres':
+        cur.execute('''CREATE TABLE IF NOT EXISTS courses (
+        id SERIAL PRIMARY KEY, course_code TEXT UNIQUE NOT NULL,
         course_name TEXT NOT NULL, duration TEXT, fees REAL DEFAULT 0,
         description TEXT, syllabus TEXT, certificate_template TEXT,
-        is_active INTEGER DEFAULT 1, created_at TIMESTAMP DEFAULT {NOW})''')
+        is_active INTEGER DEFAULT 1, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
+    else:
+        cur.execute('''CREATE TABLE IF NOT EXISTS courses (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, course_code TEXT UNIQUE NOT NULL,
+        course_name TEXT NOT NULL, duration TEXT, fees REAL DEFAULT 0,
+        description TEXT, syllabus TEXT, certificate_template TEXT,
+        is_active INTEGER DEFAULT 1, created_at TIMESTAMP DEFAULT datetime('now'))''')
     cur.execute(f'''CREATE TABLE IF NOT EXISTS batches (
         id {AID}, batch_name TEXT NOT NULL,
         course_id INTEGER, trainer_id INTEGER, timing TEXT,
