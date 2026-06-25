@@ -123,6 +123,7 @@ def init_db():
     
     # Users
     cur.execute(f'''CREATE TABLE IF NOT EXISTS users (
+        id {AID}, username TEXT UNIQUE NOT NULL,
         password_hash TEXT NOT NULL, full_name TEXT NOT NULL,
         email TEXT, phone TEXT, role TEXT NOT NULL DEFAULT 'student',
         is_active INTEGER DEFAULT 1,
