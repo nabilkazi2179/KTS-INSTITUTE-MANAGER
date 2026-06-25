@@ -314,7 +314,7 @@ def dashboard():
     acs=q("SELECT COUNT(*) as c FROM students WHERE status='active'")[0]['c']
     tc=q("SELECT COUNT(*) as c FROM courses WHERE is_active=1")[0]['c']
     tb=q("SELECT COUNT(*) as c FROM batches WHERE status='active'")[0]['c']
-    tt=q("SELECT COUNT(*) as c FROM trainers1")[0]['c']
+    tt=q("SELECT COUNT(*) as c FROM trainers")[0]['c']
     tcol=q("SELECT COALESCE(SUM(amount),0) as s FROM fee_payments")[0]['s'] or 0
     pf=0
     for fs in q("SELECT student_id,total_fee FROM fee_structures"):
