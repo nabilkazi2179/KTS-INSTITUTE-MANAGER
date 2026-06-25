@@ -61,7 +61,7 @@ def get_db():
 
 def q(query, args=None, one=False):
     if DB_MODE == 'postgres':
-        query = query.replace('?', '%s')
+        query = query.replace('?', '?')
     if args is None:
         args = ()
     db = get_db()
@@ -85,7 +85,7 @@ def q(query, args=None, one=False):
 
 def ex(query, args=()):
     if DB_MODE == 'postgres':
-        query = query.replace('?', '%s')
+        query = query.replace('?', '?')
     db = get_db()
     try:
         cur = db.cursor()
@@ -253,7 +253,7 @@ def fee_total(sid):
     return r[0]['total_fee'] if r else 0
 
 def log(uid, action, tbl, rid, det=''):
-    try: ex("INSERT INTO audit_logs (user_id,action,table_name,record_id,details) VALUES (%s,%s,%s,%s,%s)",(uid,action,tbl,rid,det))
+    try: ex("INSERT INTO audit_logs (user_id,action,table_name,record_id,details) VALUES (?,?,?,?,?)",(uid,action,tbl,rid,det))
     except: pass
 
 ROLE_PERMS = {
@@ -368,9 +368,9 @@ def add_student():
         suid=None
         em=request.form.get('email','').strip()
         if em:
-            suid=ex("INSERT INTO users (username,password_hash,full_name,email,phone,role) VALUES (%s,%s,%s,%s,%s,%s)",
+            suid=ex("INSERT INTO users (username,password_hash,full_name,email,phone,role) VALUES (?,?,?,?,?,?)",
                 (sid,generate_password_hash('kts123'),fn,em,request.form.get('mobile',''),'student'))
-        iid=ex("INSERT INTO students (student_id,full_name,guardian_name,dob,gender,mobile,whatsapp,email,address,city,state,country,id_number,qualification,photo,id_proof,joining_date,course_id,batch_id,counselor_id,remarks,user_id) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+        iid=ex("INSERT INTO students (student_id,full_name,guardian_name,dob,gender,mobile,whatsapp,email,address,city,state,country,id_number,qualification,photo,id_proof,joining_date,course_id,batch_id,counselor_id,remarks,user_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (sid,fn,request.form.get('guardian_name',''),request.form.get('dob',''),request.form.get('gender',''),
              request.form.get('mobile',''),request.form.get('whatsapp',''),em,
              request.form.get('address',''),request.form.get('city',''),request.form.get('state',''),
@@ -385,7 +385,7 @@ def add_student():
         cef=float(request.form.get('certificate_fee',0) or 0)
         mf=float(request.form.get('misc_fee',0) or 0)
         tot=rf+af+cf2+ef+cef+mf
-        ex("INSERT INTO fee_structures (student_id,registration_fee,admission_fee,course_fee,exam_fee,certificate_fee,misc_fee,total_fee) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
+        ex("INSERT INTO fee_structures (student_id,registration_fee,admission_fee,course_fee,exam_fee,certificate_fee,misc_fee,total_fee) VALUES (?,?,?,?,?,?,?,?)",
             (iid,rf,af,cf2,ef,cef,mf,tot))
         log(session['user_id'],'create','students',iid,f'Admitted {sid}')
         flash(f'Student admitted! ID: {sid}','success'); return redirect(url_for('view_student',id=iid))
@@ -428,7 +428,7 @@ def courses():
 @login_required
 @role_required('super_admin','admin')
 def add_course():
-    ex("INSERT INTO courses (course_code,course_name,duration,fees,description) VALUES (%s,%s,%s,%s,%s)",
+    ex("INSERT INTO courses (course_code,course_name,duration,fees,description) VALUES (?,?,?,?,?)",
         (request.form.get('course_code','').upper(),request.form.get('course_name',''),request.form.get('duration',''),float(request.form.get('fees',0)),request.form.get('description','')))
     flash('Course added!','success'); return redirect(url_for('courses'))
 
@@ -461,7 +461,7 @@ def get_batches(course_id):
 @login_required
 @role_required('super_admin','admin')
 def add_batch():
-    ex("INSERT INTO batches (batch_name,course_id,trainer_id,timing,start_date,end_date,max_strength,status) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
+    ex("INSERT INTO batches (batch_name,course_id,trainer_id,timing,start_date,end_date,max_strength,status) VALUES (?,?,?,?,?,?,?,?)",
         (request.form.get('batch_name',''),request.form.get('course_id'),request.form.get('trainer_id') or None,request.form.get('timing',''),request.form.get('start_date',''),request.form.get('end_date',''),int(request.form.get('max_strength',30)),'active'))
     flash('Batch created!','success'); return redirect(url_for('batches'))
 
@@ -479,7 +479,7 @@ def record_payment(student_id):
     amt=float(request.form.get('amount',0))
     if amt<=0: flash('Amount > 0 required.','danger'); return redirect(url_for('view_student',id=student_id))
     rcp=gen_receipt()
-    ex("INSERT INTO fee_payments (student_id,receipt_no,amount,payment_method,installment_no,remarks,collected_by) VALUES (%s,%s,%s,%s,%s,%s,%s)",
+    ex("INSERT INTO fee_payments (student_id,receipt_no,amount,payment_method,installment_no,remarks,collected_by) VALUES (?,?,?,?,?,?,?)",
         (student_id,rcp,amt,request.form.get('payment_method','Cash'),int(request.form.get('installment_no',0) or 0),request.form.get('remarks',''),session['user_id']))
     log(session['user_id'],'fee_payment','fee_payments',student_id,f'Rs.{amt} - {rcp}')
     flash(f'Payment recorded! Receipt: {rcp}','success'); return redirect(url_for('view_student',id=student_id))
@@ -500,8 +500,10 @@ def attendance():
         bid=request.form.get('batch_id'); ds=request.form.get('date',date.today().isoformat())
         for att in q("SELECT id FROM students WHERE batch_id=? AND status='active'",(bid,)):
             st=request.form.get(f"status_{att['id']}",'absent')
-            ex("INSERT INTO attendance (student_id,batch_id,attendance_date,status,marked_by) VALUES (%s,%s,%s,%s,%s) ON CONFLICT(student_id,batch_id,attendance_date) DO UPDATE SET status=EXCLUDED.status",
-                (att['id'],bid,ds,st,session['user_id']))
+            if DB_MODE == 'postgres':
+                ex("INSERT INTO attendance (student_id,batch_id,attendance_date,status,marked_by) VALUES (?,?,?,?,?) ON CONFLICT(student_id,batch_id,attendance_date) DO UPDATE SET status=EXCLUDED.status",(att['id'],bid,ds,st,session['user_id']))
+            else:
+                ex("INSERT OR REPLACE INTO attendance (student_id,batch_id,attendance_date,status,marked_by) VALUES (?,?,?,?,?)",(att['id'],bid,ds,st,session['user_id']))
         flash('Attendance saved!','success'); return redirect(url_for('attendance',batch_id=bid,date=ds))
     sib=[]
     if bid: sib=q("SELECT s.id,s.full_name,s.student_id,a.status as att_status FROM students s LEFT JOIN attendance a ON a.student_id=s.id AND a.batch_id=? AND a.attendance_date=? WHERE s.batch_id=? AND s.status='active'",(bid,ds,bid))
@@ -516,7 +518,7 @@ def exams():
 @login_required
 @role_required('super_admin','admin','trainer')
 def add_exam():
-    ex("INSERT INTO exams (exam_name,course_id,batch_id,exam_date,max_marks,passing_marks,exam_type) VALUES (%s,%s,%s,%s,%s,%s,%s)",
+    ex("INSERT INTO exams (exam_name,course_id,batch_id,exam_date,max_marks,passing_marks,exam_type) VALUES (?,?,?,?,?,?,?)",
         (request.form.get('exam_name',''),request.form.get('course_id'),request.form.get('batch_id') or None,request.form.get('exam_date',''),float(request.form.get('max_marks',100)),float(request.form.get('passing_marks',40)),request.form.get('exam_type','theory')))
     flash('Exam created!','success'); return redirect(url_for('exams'))
 
@@ -538,9 +540,9 @@ def exam_results(eid):
             else: gr='F'; sr='Fail'
             exi=q("SELECT id FROM exam_results WHERE exam_id=? AND student_id=?",(eid,st['id']),one=True)
             if exi:
-                ex("UPDATE exam_results SET theory_marks=%s,practical_motal_marks=%s,percentage=%s,grade=%s,status=%s WHERE id=?",(th,pr,tot2,pct,gr,sr,exi['id']))
+                ex("UPDATE exam_results SET theory_marks=?,practical_motal_marks=?,percentage=?,grade=?,status=? WHERE id=?",(th,pr,tot2,pct,gr,sr,exi['id']))
             else:
-                ex("INSERT INTO exam_results (exam_id,student_id,theory_marks,practical_marks,total_marks,percentage,grade,status) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",(eid,st['id'],th,pr,tot2,pct,gr,sr))
+                ex("INSERT INTO exam_results (exam_id,student_id,theory_marks,practical_marks,total_marks,percentage,grade,status) VALUES (?,?,?,?,?,?,?,?)",(eid,st['id'],th,pr,tot2,pct,gr,sr))
         flash('Results saved!','success'); return redirect(url_for('exam_results',eid=eid))
     studs=q("SELECT s.id,s.full_name,s.student_id,er.theory_marks,er.practical_marks,er.total_marks,er.percentage,er.grade,er.status FROM students s LEFT JOIN exam_results er ON er.student_id=s.id AND er.exam_id=? WHERE s.course_id=? AND s.status='active'",(eid,exm[course_id]))
     return render_template('exam_results.html',exam=exm,students=studs)
@@ -566,7 +568,7 @@ def generate_certificate():
     ap=round(r['avg_pct'] or 0,2) if r else 0
     gr='A+' if ap>=75 else 'A' if ap>=60 else 'B' if ap>=50 else 'C' if ap>=40 else 'F'
     cn=gen_cert_no()
-    ex("INSERT INTO certificates (certificate_no,student_id,course_id,grade,percentage,completion_date) VALUES (%s,%s,%s,%s,%s,%s)",(cn,sid,st['course_id'],gr,ap,date.today().isoformat()))
+    ex("INSERT INTO certificates (certificate_no,student_id,course_id,grade,percentage,completion_date) VALUES (?,?,?,?,?,?)",(cn,sid,st['course_id'],gr,ap,date.today().isoformat()))
     log(session['user_id'],'generate_certificate','certificates',sid,cn)
     flash(f'Certificate: {cn}','success'); return redirect(url_for('certificates'))
 
@@ -598,9 +600,9 @@ def trainers():
 @role_required('super_admin','admin')
 def add_trainer():
     un=request.form.get('email','').replace('@','_').replace('.','_') or f"trainer_{uuid.uuid4().hex[:6]}"
-    uid=ex("INSERT INTO users (username,password_hash,full_name,email,phone,role) VALUES (%s,%s,%s,%s,%s,%s)",
+    uid=ex("INSERT INTO users (username,password_hash,full_name,email,phone,role) VALUES (?,?,?,?,?,?)",
         (un,generate_password_hash('trainer123'),request.form.get('full_name',''),request.form.get('email',''),request.form.get('phone',''),'trainer'))
-    ex("INSERT INTO trainers (user_id,qualification,experience,salary,specialization,joining_date) VALUES (%s,%s,%s,%s,%s,%s)",
+    ex("INSERT INTO trainers (user_id,qualification,experience,salary,specialization,joining_date) VALUES (?,?,?,?,?,?)",
         (uid,request.form.get('qualification',''),request.form.get('experience',''),float(request.form.get('salary',0)),request.form.get('specialization',''),request.form.get('joining_date',date.today().isoformat())))
     flash('Trainer added!','success'); return redirect(url_for('trainers'))
 
@@ -617,7 +619,7 @@ def staff():
 def add_staff():
     un=request.form.get('username','').strip()
     if not un: un=request.form.get('email','').replace('@','_').replace('.','_')
-    ex("INSERT INTO users (username,password_hash,full_name,email,phone,role) VALUES (%s,%s,%s,%s,%s,%s)",
+    ex("INSERT INTO users (username,password_hash,full_name,email,phone,role) VALUES (?,?,?,?,?,?)",
         (un,generate_password_hash('kts123'),request.form.get('full_name',''),request.form.get('email',''),request.form.get('phone',''),request.form.get('role','staff')))
     flash('Staff added!','success'); return redirect(url_for('staff'))
 
