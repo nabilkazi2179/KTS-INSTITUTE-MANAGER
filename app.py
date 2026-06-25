@@ -33,6 +33,7 @@ BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 DATABASE_URL = os.environ.get('DATABASE_URL', '')
 DB_MODE = 'sqlite'
 DB_PATH = ':memory:'
+# Vercel deployment trigger
 
 if DATABASE_URL and DATABASE_URL not in ('sqlite', ''):
     try:
