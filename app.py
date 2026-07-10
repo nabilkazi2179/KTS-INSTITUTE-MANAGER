@@ -725,7 +725,9 @@ def health():
     init_db()
     try:
         co = q("SELECT COUNT(*) as c FROM courses")[0]['c']
-        return jsonify({'status':'ok','db':DB_MODE,'courses':co})
+        return jsonify({'status':'ok','db':DB_MODE,'courses':co,
+                        'has_postgres_url': bool(os.environ.get('POSTGRES_URL')),
+                        'has_database_url': bool(os.environ.get('DATABASE_URL'))})
     except Exception as e:
         return jsonify({'status':'error','error':str(e)})
 
