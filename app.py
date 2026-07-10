@@ -61,7 +61,7 @@ def get_db():
 
 def q(query, args=None, one=False):
     if DB_MODE == 'postgres':
-        query = query.replace('?', '?')
+        query = query.replace('?', '%s')
     if args is None:
         args = ()
     db = get_db()
@@ -85,7 +85,7 @@ def q(query, args=None, one=False):
 
 def ex(query, args=()):
     if DB_MODE == 'postgres':
-        query = query.replace('?', '?')
+        query = query.replace('?', '%s')
     db = get_db()
     try:
         cur = db.cursor()
