@@ -30,7 +30,7 @@ if not TELEGRAM_BOT_TOKEN:
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
 # ── Database Config ──────────────────────────────────────────
-DATABASE_URL = os.environ.get('DATABASE_URL', '')
+DATABASE_URL = os.environ.get('DATABASE_URL', '') or os.environ.get('POSTGRES_URL', '') or os.environ.get('POSTGRES_PRISMA_URL', '')
 DB_MODE = 'sqlite'
 DB_PATH = ':memory:'
 # Vercel deployment trigger
