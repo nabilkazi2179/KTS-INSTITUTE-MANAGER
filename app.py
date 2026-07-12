@@ -33,6 +33,7 @@ BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 DATABASE_URL = os.environ.get('DATABASE_URL', '') or os.environ.get('POSTGRES_URL', '') or os.environ.get('POSTGRES_PRISMA_URL', '')
 DB_MODE = 'sqlite'
 DB_PATH = ':memory:'
+_last_rowcount = 0
 # Vercel deployment trigger
 
 if DATABASE_URL and DATABASE_URL not in ('sqlite', ''):
@@ -84,12 +85,14 @@ def q(query, args=None, one=False):
         db.close()
 
 def ex(query, args=()):
+    global _last_rowcount
     if DB_MODE == 'postgres':
         query = query.replace('?', '%s')
     db = get_db()
     try:
         cur = db.cursor()
         cur.execute(query, args)
+        _last_rowcount = cur.rowcount
         db.commit()
         return cur.lastrowid
     finally:
@@ -115,10 +118,9 @@ def init_db():
     cur = db.cursor()
     AID = 'SERIAL PRIMARY KEY' if DB_MODE == 'postgres' else 'INTEGER PRIMARY KEY AUTOINCREMENT'
     
-    # Drop old tables to ensure clean schema
-    if DB_MODE == 'sqlite':
-        for t in ['notifications','audit_logs','trainers','certificates','exam_results','exams','attendance','fee_payments','fee_structures','students','batches','courses','users']:
-            cur.execute(f'DROP TABLE IF EXISTS {t}')
+    # Drop old tables to ensure clean schema (both modes)
+    for t in ['notifications','audit_logs','trainers','certificates','exam_results','exams','attendance','fee_payments','fee_structures','students','batches','courses','users']:
+        cur.execute(f'DROP TABLE IF EXISTS {t}')
     
     # Users
     cur.execute(f'''CREATE TABLE IF NOT EXISTS users (
@@ -166,7 +168,8 @@ def init_db():
     cur.execute(f'''CREATE TABLE IF NOT EXISTS attendance (
         id {AID}, student_id INTEGER, batch_id INTEGER,
         attendance_date TEXT, status TEXT DEFAULT 'present', remarks TEXT,
-        marked_by INTEGER, created_at TEXT)''')
+        marked_by INTEGER, created_at TEXT,
+        UNIQUE(student_id,batch_id,attendance_date))''')
     # Exams
     cur.execute(f'''CREATE TABLE IF NOT EXISTS exams (
         id {AID}, exam_name TEXT NOT NULL,
@@ -321,13 +324,13 @@ def dashboard():
         pf+=max(0,(fs['total_fee'] or 0)-paid_amt(fs['student_id']))
     rs=q("SELECT s.*,c.course_name FROM students s LEFT JOIN courses c ON s.course_id=c.id ORDER BY s.id DESC LIMIT 5")
     if DB_MODE == 'postgres':
-        ue=q("SELECT e.*,c.course_name FROM exams e JOIN courses c ON e.course_id=c.id WHERE e.exam_date>=CURRENT_DATE ORDER BY e.exam_date LIMIT 5")
+        ue=q("SELECT e.*,c.course_name FROM exams e JOIN courses c ON e.course_id=c.id WHERE e.exam_date>=CURRENT_DATE::text ORDER BY e.exam_date LIMIT 5")
     else:
         ue=q("SELECT e.*,c.course_name FROM exams e JOIN courses c ON e.course_id=c.id WHERE e.exam_date>=date('now') ORDER BY e.exam_date LIMIT 5")
     ci=q("SELECT COUNT(*) as c FROM certificates")[0]['c']
     ce=q("SELECT c.course_name,COUNT(s.id) as count FROM courses c LEFT JOIN students s ON c.id=s.course_id GROUP BY c.id ORDER BY count DESC")
     if DB_MODE == 'postgres':
-        mf=q("SELECT TO_CHAR(payment_date,'YYYY-MM') as month,SUM(amount) as total FROM fee_payments GROUP BY month ORDER BY month DESC LIMIT 6")
+        mf=q("SELECT TO_CHAR(payment_date::date,'YYYY-MM') as month,SUM(amount) as total FROM fee_payments GROUP BY month ORDER BY month DESC LIMIT 6")
     else:
         mf=q("SELECT strftime('%Y-%m',payment_date) as month,SUM(amount) as total FROM fee_payments GROUP BY month ORDER BY month DESC LIMIT 6")
     return render_template('dashboard.html',ts=ts,acs=acs,tc=tc,tb=tb,tt=tt,tcol=tcol,pf=pf,ci=ci,rs=rs,ue=ue,ce=ce,mf=mf)
@@ -500,10 +503,9 @@ def attendance():
         bid=request.form.get('batch_id'); ds=request.form.get('date',date.today().isoformat())
         for att in q("SELECT id FROM students WHERE batch_id=? AND status='active'",(bid,)):
             st=request.form.get(f"status_{att['id']}",'absent')
-            if DB_MODE == 'postgres':
-                ex("INSERT INTO attendance (student_id,batch_id,attendance_date,status,marked_by) VALUES (?,?,?,?,?) ON CONFLICT(student_id,batch_id,attendance_date) DO UPDATE SET status=EXCLUDED.status",(att['id'],bid,ds,st,session['user_id']))
-            else:
-                ex("INSERT OR REPLACE INTO attendance (student_id,batch_id,attendance_date,status,marked_by) VALUES (?,?,?,?,?)",(att['id'],bid,ds,st,session['user_id']))
+            ex("UPDATE attendance SET status=? WHERE student_id=? AND batch_id=? AND attendance_date=?",(st,att['id'],bid,ds))
+            if _last_rowcount==0:
+                ex("INSERT INTO attendance (student_id,batch_id,attendance_date,status,marked_by) VALUES (?,?,?,?,?)",(att['id'],bid,ds,st,session['user_id']))
         flash('Attendance saved!','success'); return redirect(url_for('attendance',batch_id=bid,date=ds))
     sib=[]
     if bid: sib=q("SELECT s.id,s.full_name,s.student_id,a.status as att_status FROM students s LEFT JOIN attendance a ON a.student_id=s.id AND a.batch_id=? AND a.attendance_date=? WHERE s.batch_id=? AND s.status='active'",(bid,ds,bid))
@@ -636,7 +638,7 @@ def report_admissions():
         if DB_MODE == 'postgres': rows=q("SELECT DATE(created_at) as period,COUNT(*) as count FROM students GROUP BY period ORDER BY period DESC LIMIT 30")
         else: rows=q("SELECT date(created_at) as period,COUNT(*) as count FROM students GROUP BY period ORDER BY period DESC LIMIT 30")
     else:
-        if DB_MODE == 'postgres': rows=q("SELECT TO_CHAR(created_at,'YYYY-MM') as period,COUNT(*) as count FROM students GROUP BY period ORDER BY period DESC LIMIT 12")
+        if DB_MODE == 'postgres': rows=q("SELECT TO_CHAR(created_at::date,'YYYY-MM') as period,COUNT(*) as count FROM students GROUP BY period ORDER BY period DESC LIMIT 12")
         else: rows=q("SELECT strftime('%Y-%m',created_at) as period,COUNT(*) as count FROM students GROUP BY period ORDER BY period DESC LIMIT 12")
     return render_template('report_admissions.html',rows=rows,period=period)
 
