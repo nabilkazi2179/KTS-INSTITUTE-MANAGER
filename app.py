@@ -96,6 +96,13 @@ def ex(query, args=()):
     db = get_db()
     try:
         cur = db.cursor()
+        # PostgreSQL: cur.lastrowid is always 0, so use RETURNING id for INSERTs
+        if DB_MODE == 'postgres' and query.strip().upper().startswith('INSERT'):
+            cur.execute(query + ' RETURNING id', args)
+            _last_rowcount = cur.rowcount
+            row = cur.fetchone()
+            db.commit()
+            return row['id'] if row else None
         cur.execute(query, args)
         _last_rowcount = cur.rowcount
         db.commit()
