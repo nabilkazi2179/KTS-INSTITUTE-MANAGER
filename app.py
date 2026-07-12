@@ -54,7 +54,9 @@ else:
 
 def get_db():
     if DB_MODE == 'postgres':
-        return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
+        conn = psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
+        conn.autocommit = True
+        return conn
     else:
         db = sqlite3.connect(DB_PATH)
         db.row_factory = sqlite3.Row
