@@ -208,10 +208,13 @@ def init_db():
     
     db.commit()
     # Admin
-    cur2 = db.cursor()
-    cur2.execute("SELECT id FROM users WHERE username=?", ('admin',))
+    def _run(qry, args=()):
+        if DB_MODE == 'postgres':
+            qry = qry.replace('?', '%s')
+        cur2.execute(qry, args)
+    _run("SELECT id FROM users WHERE username=?", ('admin',))
     if not cur2.fetchone():
-        cur2.execute("INSERT INTO users (username,password_hash,full_name,email,role) VALUES (?,?,?,?,?)",
+        _run("INSERT INTO users (username,password_hash,full_name,email,role) VALUES (?,?,?,?,?)",
             ('admin', generate_password_hash('admin123'), 'Super Admin', 'admin@kts.com', 'super_admin'))
     # Courses
     dc = [
@@ -225,9 +228,9 @@ def init_db():
         ('AU','AutoCAD','3 Months',12000,'2D & 3D drafting, architectural drawings'),
     ]
     for c in dc:
-        cur2.execute("SELECT id FROM courses WHERE course_code=?", (c[0],))
+        _run("SELECT id FROM courses WHERE course_code=?", (c[0],))
         if not cur2.fetchone():
-            cur2.execute("INSERT INTO courses (course_code,course_name,duration,fees,description) VALUES (?,?,?,?,?)", c)
+            _run("INSERT INTO courses (course_code,course_name,duration,fees,description) VALUES (?,?,?,?,?)", c)
     db.commit()
     db.close()
 
