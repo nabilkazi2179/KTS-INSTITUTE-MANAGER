@@ -731,7 +731,14 @@ def health():
     init_db()
     try:
         co = q("SELECT COUNT(*) as c FROM courses")[0]['c']
-        return jsonify({'status':'ok','db':DB_MODE,'courses':co,
+        # test actual write+read persistence
+        ex("INSERT INTO courses (course_code,course_name,duration,fees,description) VALUES (?,?,?,?,?)",
+           ('__WT__','writetest','1d',1,'probe'))
+        wid = q("SELECT id FROM courses WHERE course_code='__WT__'", one=True)
+        wrote = wid is not None
+        if wid:
+            ex("DELETE FROM courses WHERE id=?", (wid['id'],))
+        return jsonify({'status':'ok','db':DB_MODE,'courses':co,'write_test':wrote,
                         'has_postgres_url': bool(os.environ.get('POSTGRES_URL')),
                         'has_database_url': bool(os.environ.get('DATABASE_URL'))})
     except Exception as e:
