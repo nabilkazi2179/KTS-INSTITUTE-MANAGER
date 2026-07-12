@@ -6,7 +6,7 @@
     <h3>&#128222; Payment Receipt</h3>
     <div style="display:flex;gap:6px">
       <button onclick="window.print()" class="btn btn-primary btn-sm">&#128424; Print</button>
-      <a href="{{url_for('view_student',id=payment['student_id'])}}" class="btn btn-outline btn-sm">&#8592; Back</a>
+      <a href="{{url_for('view_student',id=payment.student_fk)}}" class="btn btn-outline btn-sm">&#8592; Back</a>
     </div>
   </div>
   <div class="card" style="border:2px solid var(--brd)">
@@ -15,18 +15,16 @@
       <p style="color:var(--m);font-size:.8rem">Fee Receipt</p>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:.87rem">
-      <div><strong>Receipt No:</strong> payment['receipt_no']</div>
-      <div><strong>Date:</strong> payment['payment_date']</div>
-      <div><strong>Student ID:</strong> payment['student_id']</div>
-      <div><strong>Name:</strong> payment['full_name']</div>
-      <div><strong>Course:</strong> payment['course_name'] or 'N/A'</div>
-      <div><strong>Mobile:</strong> payment['mobile'] or 'N/A'</div>
-      <div><strong>Amount Paid:</strong> <span style="font-size:1.2rem;font-weight:700;color:var(--s)">&#8377;{{"{:,.0f}".format(payment['amount'])}}</span></div>
-      <div><strong>Payment Method:</strong> payment['payment_method']</div>
+      <div><strong>Receipt No:</strong> {{ payment.receipt_no }}</div>
+      <div><strong>Date:</strong> {{ payment.payment_date }}</div>
+      <div><strong>Student ID:</strong> {{ payment.sid }}</div>
+      <div><strong>Name:</strong> {{ payment.full_name }}</div>
+      <div><strong>Course:</strong> {{ payment.course_name or 'N/A' }}</div>
+      <div><strong>Mobile:</strong> {{ payment.mobile or 'N/A' }}</div>
+      <div><strong>Amount Paid:</strong> <span style="font-size:1.2rem;font-weight:700;color:var(--s)">&#8377;{{ "{:,.0f}".format(payment.amount) }}</span></div>
+      <div><strong>Payment Method:</strong> {{ payment.payment_method }}</div>
     </div>
-    {% if payment['remarks'] %}
-    <div style="margin-top:12px;font-size:.85rem;color:var(--m)"><strong>Remarks:</strong> payment['remarks']</div>
-    {% endif %}
+    {% if payment.remarks %}<div style="margin-top:12px;font-size:.85rem;color:var(--m)"><strong>Remarks:</strong> {{ payment.remarks }}</div>{% endif %}
     <div style="margin-top:24px;display:flex;justify-content:space-between;align-items:flex-end">
       <div style="font-size:.75rem;color:var(--m)">This is a system-generated receipt</div>
       <div style="text-align:center"><div style="border-top:1px solid var(--t);width:150px;margin-bottom:4px"></div><span style="font-size:.75rem;color:var(--m)">Authorized Sign</span></div>

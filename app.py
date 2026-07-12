@@ -496,7 +496,7 @@ def record_payment(student_id):
 @app.route('/fees/receipt/<int:payment_id>')
 @login_required
 def view_receipt(payment_id):
-    p=q("SELECT fp.*,s.full_name,s.student_id,s.mobile,s.address,c.course_name FROM fee_payments fp JOIN students s ON fp.student_id=s.id LEFT JOIN courses c ON s.course_id=c.id WHERE fp.id=?",(payment_id,),one=True)
+    p=q("SELECT fp.id as payment_fk,fp.student_id as student_fk,fp.*,s.full_name,s.student_id as sid,s.mobile,s.address,c.course_name FROM fee_payments fp JOIN students s ON fp.student_id=s.id LEFT JOIN courses c ON s.course_id=c.id WHERE fp.id=?",(payment_id,),one=True)
     return render_template('receipt.html',payment=p)
 
 @app.route('/attendance',methods=['GET','POST'])
