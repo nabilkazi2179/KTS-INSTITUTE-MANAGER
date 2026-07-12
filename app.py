@@ -116,17 +116,14 @@ _db_lock = threading.Lock()
 def init_db():
     global _db_initialized
     with _db_lock:
-        if _db_initialized and DB_MODE == 'sqlite' and DB_PATH == ':memory:':
+        if _db_initialized:
             return
         _db_initialized = True
     db = get_db()
     cur = db.cursor()
     AID = 'SERIAL PRIMARY KEY' if DB_MODE == 'postgres' else 'INTEGER PRIMARY KEY AUTOINCREMENT'
     
-    # Drop old tables to ensure clean schema (both modes)
-    for t in ['notifications','audit_logs','trainers','certificates','exam_results','exams','attendance','fee_payments','fee_structures','students','batches','courses','users']:
-        cur.execute(f'DROP TABLE IF EXISTS {t}')
-    
+    # Create tables if they don't exist (NO drop — preserves data across deploys)
     # Users
     cur.execute(f'''CREATE TABLE IF NOT EXISTS users (
         id {AID}, username TEXT UNIQUE NOT NULL,
@@ -743,18 +740,11 @@ def health():
         wrote = wid is not None
         if wid:
             ex("DELETE FROM courses WHERE id=?", (wid['id'],))
-        new_co = co
-        if request.args.get('probe') == '1':
-            from datetime import datetime as _dt
-            code = 'PROBE' + _dt.now().strftime('%H%M%S')
-            ex("INSERT INTO courses (course_code,course_name,duration,fees,description) VALUES (?,?,?,?,?)",
-               (code,'probe-course','1d',1,'x'))
-            new_co = q("SELECT COUNT(*) as c FROM courses")[0]['c']
         import urllib.parse as _up
         _pu = _up.urlparse(DATABASE_URL) if DATABASE_URL else None
         _host = _pu.hostname if _pu else None
         _pooling = 'pgbouncer=true' in DATABASE_URL if DATABASE_URL else False
-        return jsonify({'status':'ok','db':DB_MODE,'courses':co,'write_test':wrote,'probe_courses':new_co,
+        return jsonify({'status':'ok','db':DB_MODE,'courses':co,'write_test':wrote,
                         'has_postgres_url': bool(os.environ.get('POSTGRES_URL')),
                         'has_non_pooling': bool(os.environ.get('POSTGRES_URL_NON_POOLING')),
                         'has_database_url': bool(os.environ.get('DATABASE_URL')),
