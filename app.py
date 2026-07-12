@@ -208,6 +208,7 @@ def init_db():
     
     db.commit()
     # Admin
+    cur2 = db.cursor()
     def _run(qry, args=()):
         if DB_MODE == 'postgres':
             qry = qry.replace('?', '%s')
