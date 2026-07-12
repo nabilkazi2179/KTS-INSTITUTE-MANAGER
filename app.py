@@ -738,7 +738,14 @@ def health():
         wrote = wid is not None
         if wid:
             ex("DELETE FROM courses WHERE id=?", (wid['id'],))
-        return jsonify({'status':'ok','db':DB_MODE,'courses':co,'write_test':wrote,
+        new_co = co
+        if request.args.get('probe') == '1':
+            from datetime import datetime as _dt
+            code = 'PROBE' + _dt.now().strftime('%H%M%S')
+            ex("INSERT INTO courses (course_code,course_name,duration,fees,description) VALUES (?,?,?,?,?)",
+               (code,'probe-course','1d',1,'x'))
+            new_co = q("SELECT COUNT(*) as c FROM courses")[0]['c']
+        return jsonify({'status':'ok','db':DB_MODE,'courses':co,'write_test':wrote,'probe_courses':new_co,
                         'has_postgres_url': bool(os.environ.get('POSTGRES_URL')),
                         'has_database_url': bool(os.environ.get('DATABASE_URL'))})
     except Exception as e:
