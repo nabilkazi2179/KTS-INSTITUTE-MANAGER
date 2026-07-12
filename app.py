@@ -314,7 +314,10 @@ def login():
             session['full_name']=user['full_name']; session['role']=user['role']
             session['email']=user['email']
             log(user['id'],'login','users',user['id'])
-            flash(f'Welcome, {user["full_name"]}!','success'); return redirect(url_for('dashboard'))
+            flash(f'Welcome, {user["full_name"]}!','success')
+            if user['role']=='student':
+                return redirect(url_for('student_portal'))
+            return redirect(url_for('dashboard'))
         flash('Invalid credentials.','danger')
     return render_template('login.html')
 
@@ -434,6 +437,22 @@ def edit_student(id):
     cl=q("SELECT * FROM courses WHERE is_active=1"); bl=q("SELECT b.*,c.course_name FROM batches b JOIN courses c ON b.course_id=c.id WHERE b.status='active'")
     co=q("SELECT * FROM users WHERE role IN ('counselor','admin','super_admin') AND is_active=1")
     return render_template('edit_student.html',student=st,courses=cl,batches=bl,counselors=co)
+
+@app.route('/student_portal')
+@login_required
+@role_required('student')
+def student_portal():
+    st=q("SELECT s.*,c.course_name,c.duration,c.course_code FROM students s LEFT JOIN courses c ON s.course_id=c.id WHERE s.user_id=?",(session['user_id'],),one=True)
+    if not st:
+        flash('No student profile linked to your account.','danger'); return redirect(url_for('dashboard'))
+    sid=st['id']
+    fs=q("SELECT * FROM fee_structures WHERE student_id=?",(sid,),one=True)
+    pay=q("SELECT * FROM fee_payments WHERE student_id=? ORDER BY payment_date DESC",(sid,))
+    tp=sum(p['amount'] for p in pay); tf=fs['total_fee'] if fs else 0; pn=max(0,tf-tp)
+    ar=q("SELECT * FROM attendance WHERE student_id=? ORDER BY attendance_date DESC LIMIT 30",(sid,))
+    rr=q("SELECT er.*,e.exam_name FROM exam_results er JOIN exams e ON er.exam_id=e.id WHERE er.student_id=? ORDER BY e.exam_date DESC",(sid,))
+    ct=q("SELECT * FROM certificates WHERE student_id=? ORDER BY id DESC",(sid,))
+    return render_template('student_portal.html',student=st,tf=tf,tp=tp,pn=pn,pay=pay,ar=ar,rr=rr,ct=ct)
 
 @app.route('/courses')
 @login_required
