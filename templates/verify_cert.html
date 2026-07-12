@@ -12,13 +12,13 @@
     {% if result %}
     <div style="margin-top:20px;text-align:left;padding:16px;background:#d1fae5;border-radius:8px;border:1px solid #a7f3d0">
       <p style="color:#065f46;font-weight:600;margin-bottom:8px">&#10004; Valid Certificate</p>
-      <p style="font-size:.85rem"><strong>Name:</strong> result['full_name']</p>
-      <p style="font-size:.85rem"><strong>Student ID:</strong> result['student_id']</p>
-      <p style="font-size:.85rem"><strong>Course:</strong> result['course_name']</p>
-      <p style="font-size:.85rem"><strong>Grade:</strong> result['grade'] or 'N/A'</p>
-      <p style="font-size:.85rem"><strong>Percentage:</strong> result['percentage'] or 0%</p>
-      <p style="font-size:.85rem"><strong>Issued:</strong> result['issue_date'] or 'N/A'</p>
-      <p style="font-size:.85rem"><strong>Certificate No:</strong> result['certificate_no']</p>
+      <p style="font-size:.85rem"><strong>Name:</strong> {{ result.full_name }}</p>
+      <p style="font-size:.85rem"><strong>Student ID:</strong> {{ result.student_id }}</p>
+      <p style="font-size:.85rem"><strong>Course:</strong> {{ result.course_name }}</p>
+      <p style="font-size:.85rem"><strong>Grade:</strong> {{ result.grade or 'N/A' }}</p>
+      <p style="font-size:.85rem"><strong>Percentage:</strong> {{ result.percentage or 0 }}%</p>
+      <p style="font-size:.85rem"><strong>Issued:</strong> {{ result.issue_date or 'N/A' }}</p>
+      <p style="font-size:.85rem"><strong>Certificate No:</strong> {{ result.certificate_no }}</p>
     </div>
     {% elif request.method=='POST' %}
     <div style="margin-top:20px;padding:16px;background:#fee2e2;border-radius:8px;border:1px solid #fecaca">
