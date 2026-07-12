@@ -18,12 +18,12 @@
   <div class="table-wrap"><table>
     <thead><tr><th>Code</th><th>Name</th><th>Duration</th><th>Fees</th><th>Status</th><th>Actions</th></tr></thead>
     <tbody>{% for c in courses %}<tr>
-      <td><strong>c['course_code']</strong></td>
-      <td>c['course_name']</td>
-      <td>c['duration'] or 'N/A'</td>
-      <td>{{"{:,.0f}".format(c['fees'] or 0)}}</td>
-      <td><span class="badge c['is_active']">c['is_active']</span></td>
-      <td><form method="POST" action="{{url_for('toggle_course',id=c['id'])}}" style="display:inline"><button class="btn btn-sm btn-outline">Toggle</button></form></td>
+      <td><strong>{{ c.course_code }}</strong></td>
+      <td>{{ c.course_name }}</td>
+      <td>{{ c.duration or 'N/A' }}</td>
+      <td>{{ "{:,.0f}".format(c.fees or 0) }}</td>
+      <td><span class="badge {{ 'active' if c.is_active else 'inactive' }}">{{ 'Active' if c.is_active else 'Inactive' }}</span></td>
+      <td><form method="POST" action="{{url_for('toggle_course',id=c.id)}}" style="display:inline"><button class="btn btn-sm btn-outline">Toggle</button></form></td>
     </tr>{% endfor %}</tbody>
   </table></div>
 </div>

@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}My Portal{% endblock %}
 {% block content %}
-<h2 style="font-size:1.1rem;margin-bottom:16px">&#128100; Welcome, student['full_name']</h2>
+<h2 style="font-size:1.1rem;margin-bottom:16px">&#128100; Welcome, {{ student.full_name }}</h2>
 <div class="stats-grid" style="grid-template-columns:1fr 1fr 1fr">
   <div class="stat"><div class="info"><div class="val">{{"{:,.0f}".format(tf)}}</div><div class="lbl">Total Fee</div></div></div>
   <div class="stat"><div class="info"><div class="val" style="color:var(--s)">{{"{:,.0f}".format(tp)}}</div><div class="lbl">Paid</div></div></div>
@@ -18,10 +18,10 @@
     {% if pay %}<div class="table-wrap"><table>
       <thead><tr><th>Receipt</th><th>Date</th><th>Amount</th><th>Method</th></tr></thead>
       <tbody>{% for p in pay %}<tr>
-        <td><a href="{{url_for('view_receipt',payment_id=p['id'])}}">p['receipt_no']</a></td>
-        <td>p['payment_date']</td>
+        <td><a href="{{url_for('view_receipt',payment_id=p['id'])}}">{{ p.receipt_no }}</a></td>
+        <td>{{ p.payment_date }}</td>
         <td>{{"{:,.0f}".format(p['amount'])}}</td>
-        <td>p['payment_method']</td>
+        <td>{{ p.payment_method }}</td>
       </tr>{% endfor %}</tbody>
     </table></div>{% endif %}
     {% if not pay %}<p style="color:var(--m)">No payments yet</p>{% endif %}
@@ -31,7 +31,7 @@
   <div class="card"><div class="card-title">Attendance</div>
     {% if ar %}<div class="table-wrap"><table>
       <thead><tr><th>Date</th><th>Status</th></tr></thead>
-      <tbody>{% for a in ar %}<tr><td>a['attendance_date']</td><td><span class="badge a['status']">a['status']</span></td></tr>{% endfor %}</tbody>
+      <tbody>{% for a in ar %}<tr><td>{{ a.attendance_date }}</td><td><span class="badge {{ a.status }}">{{ a.status }}</span></td></tr>{% endfor %}</tbody>
     </table></div>{% endif %}
     {% if not ar %}<p style="color:var(--m)">No attendance records</p>{% endif %}
   </div>
@@ -41,11 +41,11 @@
     {% if rr %}<div class="table-wrap"><table>
       <thead><tr><th>Exam</th><th>Total</th><th>%</th><th>Grade</th><th>Status</th></tr></thead>
       <tbody>{% for r in rr %}<tr>
-        <td>r['exam_name']</td>
-        <td>r['total_marks'] or '-'</td>
-        <td>r['percentage'] or '-'%</td>
-        <td>r['grade'] or '-'</td>
-        <td>r['status'] or '-'</td>
+        <td>{{ r.exam_name }}</td>
+        <td>{{ r.total_marks or '-' }}</td>
+        <td>{{ r.percentage or '-' }}%</td>
+        <td>{{ r.grade or '-' }}</td>
+        <td>{{ r.status or '-' }}</td>
       </tr>{% endfor %}</tbody>
     </table></div>{% endif %}
     {% if not rr %}<p style="color:var(--m)">No results yet</p>{% endif %}
@@ -56,10 +56,10 @@
     {% if ct %}<div class="table-wrap"><table>
       <thead><tr><th>Cert No</th><th>Grade</th><th>%</th><th>Date</th></tr></thead>
       <tbody>{% for c in ct %}<tr>
-        <td><a href="{{url_for('view_certificate',cid=c['id'])}}">c['certificate_no']</a></td>
-        <td>c['grade']</td>
-        <td>c['percentage'] or 0%</td>
-        <td>c['issue_date']</td>
+        <td><a href="{{url_for('view_certificate',cid=c['id'])}}">{{ c.certificate_no }}</a></td>
+        <td>{{ c.grade }}</td>
+        <td>{{ c.percentage or 0 }}%</td>
+        <td>{{ c.issue_date }}</td>
       </tr>{% endfor %}</tbody>
     </table></div>{% endif %}
     {% if not ct %}<p style="color:var(--m)">No certificates yet</p>{% endif %}

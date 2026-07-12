@@ -2,7 +2,7 @@
 {% block title %}Student Details{% endblock %}
 {% block content %}
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-  <h2 style="font-size:1.1rem">&#127891; student['full_name']</h2>
+  <h2 style="font-size:1.1rem">&#127891; {{ student.full_name }}</h2>
   <div style="display:flex;gap:6px">
     <a href="{{url_for('edit_student',id=student['id'])}}" class="btn btn-outline btn-sm">&#9998; Edit</a>
     <a href="{{url_for('students_list')}}" class="btn btn-outline btn-sm">&#8592; Back</a>
@@ -12,23 +12,23 @@
   <div>
     <div class="card" style="text-align:center">
       {% if student['photo'] %}
-      <img src="/static/uploads/photos/student['photo']" style="width:120px;height:120px;border-radius:50%;object-fit:cover;border:3px solid var(--p)">
+      <img src="/static/uploads/photos/{{ student.photo }}" style="width:120px;height:120px;border-radius:50%;object-fit:cover;border:3px solid var(--p)">
       {% endif %}
       {% if not student['photo'] %}
-      <div style="width:120px;height:120px;border-radius:50%;background:var(--p);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:2.5rem;font-weight:700">student['full_name'][0]</div>
+      <div style="width:120px;height:120px;border-radius:50%;background:var(--p);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:2.5rem;font-weight:700">{{ student.full_name }}[0]</div>
       {% endif %}
-      <h3 style="margin-top:10px;font-size:1rem">student['full_name']</h3>
-      <p style="color:var(--p);font-weight:600;font-size:.9rem">student['student_id']</p>
-      <p style="color:var(--m);font-size:.8rem">student['course_name'] or 'N/A' | student['duration'] or '' </p>
-      <span class="badge student['status']" style="margin-top:6px">student['status']</span>
+      <h3 style="margin-top:10px;font-size:1rem">{{ student.full_name }}</h3>
+      <p style="color:var(--p);font-weight:600;font-size:.9rem">{{ student.student_id }}</p>
+      <p style="color:var(--m);font-size:.8rem">{{ student.course_name or 'N/A' }} | {{ student.duration or '' }} </p>
+      <span class="badge {{ student.status }}" style="margin-top:6px">{{ student.status }}</span>
     </div>
     <div class="card">
       <div class="card-title">Contact</div>
-      <p style="font-size:.85rem;margin-bottom:4px">&#128241; student['mobile'] or 'N/A'</p>
-      <p style="font-size:.85rem;margin-bottom:4px">&#128172; student['whatsapp'] or 'N/A'</p>
-      <p style="font-size:.85rem;margin-bottom:4px">&#9993; student['email'] or 'N/A'</p>
-      <p style="font-size:.85rem;margin-bottom:4px">&#128205; student['city'] or '', student['state'] or '', student['country'] or 'India'</p>
-      <p style="font-size:.85rem">&#127891; student['qualification'] or 'N/A'</p>
+      <p style="font-size:.85rem;margin-bottom:4px">&#128241; {{ student.mobile or 'N/A' }}</p>
+      <p style="font-size:.85rem;margin-bottom:4px">&#128172; {{ student.whatsapp or 'N/A' }}</p>
+      <p style="font-size:.85rem;margin-bottom:4px">&#9993; {{ student.email or 'N/A' }}</p>
+      <p style="font-size:.85rem;margin-bottom:4px">&#128205; {{ student.city or '' }}, {{ student.state or '' }}, {{ student.country or 'India' }}</p>
+      <p style="font-size:.85rem">&#127891; {{ student.qualification or 'N/A' }}</p>
     </div>
   </div>
   <div>
@@ -59,10 +59,10 @@
         {% if pay %}<div class="table-wrap"><table>
           <thead><tr><th>Receipt</th><th>Date</th><th>Amount</th><th>Method</th></tr></thead>
           <tbody>{% for p in pay %}<tr>
-            <td><a href="{{url_for('view_receipt',payment_id=p['id'])}}">p['receipt_no']</a></td>
-            <td>p['payment_date']</td>
+            <td><a href="{{url_for('view_receipt',payment_id=p['id'])}}">{{ p.receipt_no }}</a></td>
+            <td>{{ p.payment_date }}</td>
             <td><strong>{{"{:,.0f}".format(p['amount'])}}</strong></td>
-            <td>p['payment_method']</td>
+            <td>{{ p.payment_method }}</td>
           </tr>{% endfor %}</tbody>
         </table></div>{% endif %}
         {% if not pay %}<p style="color:var(--m);text-align:center;padding:16px">No payments yet</p>{% endif %}
@@ -72,7 +72,7 @@
       <div class="card"><div class="card-title">Attendance ({{ap}}% Present)</div>
         {% if ar %}<div class="table-wrap"><table>
           <thead><tr><th>Date</th><th>Status</th></tr></thead>
-          <tbody>{% for a in ar %}<tr><td>a['attendance_date']</td><td><span class="badge a['status']">a['status']</span></td></tr>{% endfor %}</tbody>
+          <tbody>{% for a in ar %}<tr><td>{{ a.attendance_date }}</td><td><span class="badge {{ a.status }}">{{ a.status }}</span></td></tr>{% endfor %}</tbody>
         </table></div>{% endif %}
         {% if not ar %}<p style="color:var(--m);text-align:center;padding:16px">No attendance records</p>{% endif %}
       </div>
@@ -82,13 +82,13 @@
         {% if rr %}<div class="table-wrap"><table>
           <thead><tr><th>Exam</th><th>Theory</th><th>Practical</th><th>Total</th><th>%</th><th>Grade</th><th>Status</th></tr></thead>
           <tbody>{% for r in rr %}<tr>
-            <td>r['exam_name']</td>
-            <td>r['theory_marks'] or '-'</td>
-            <td>r['practical_marks'] or '-'</td>
-            <td>r['total_marks'] or '-'</td>
-            <td>r['percentage'] or '-'%</td>
-            <td><strong>r['grade'] or '-'</strong></td>
-            <td><span class="badge {% if r['status']=='Fail' %}fail{% elif r['status']=='Distinction' %}distinction{% else %}pass{% endif %}">r['status'] or '-'</span></td>
+            <td>{{ r.exam_name }}</td>
+            <td>{{ r.theory_marks or '-' }}</td>
+            <td>{{ r.practical_marks or '-' }}</td>
+            <td>{{ r.total_marks or '-' }}</td>
+            <td>{{ r.percentage or '-' }}%</td>
+            <td><strong>{{ r.grade or '-' }}</strong></td>
+            <td><span class="badge {% if r['status']=='Fail' %}fail{% elif r['status']=='Distinction' %}distinction{% else %}pass{% endif %}">{{ r.status or '-' }}</span></td>
           </tr>{% endfor %}</tbody>
         </table></div>{% endif %}
         {% if not rr %}<p style="color:var(--m);text-align:center;padding:16px">No results yet</p>{% endif %}
@@ -99,10 +99,10 @@
         {% if ct %}<div class="table-wrap"><table>
           <thead><tr><th>Cert No</th><th>Grade</th><th>%</th><th>Date</th><th>Action</th></tr></thead>
           <tbody>{% for c in ct %}<tr>
-            <td>c['certificate_no']</td>
-            <td>c['grade']</td>
-            <td>c['percentage'] or 0%</td>
-            <td>c['issue_date']</td>
+            <td>{{ c.certificate_no }}</td>
+            <td>{{ c.grade }}</td>
+            <td>{{ c.percentage or 0 }}%</td>
+            <td>{{ c.issue_date }}</td>
             <td><a href="{{url_for('view_certificate',cid=c['id'])}}" class="btn btn-sm btn-outline">View</a></td>
           </tr>{% endfor %}</tbody>
         </table></div>{% endif %}

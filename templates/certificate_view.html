@@ -12,20 +12,20 @@
   <h2>{{institute}}</h2>
   <p style="text-transform:uppercase;letter-spacing:2px;font-size:.8rem;color:#64748b;margin-bottom:8px">Certificate of Completion</p>
   <p style="font-size:.9rem;color:#475569">This is to certify that</p>
-  <div class="cname">cert['full_name']</div>
+  <div class="cname">{{ cert.full_name }}</div>
   <p class="cbody">
-    Student ID: <strong>cert['student_id']</strong> has successfully completed the course<br>
-    <strong>cert['course_name']</strong><br>
-    with <strong>cert['grade'] or 'N/A'</strong> Grade (cert['percentage'] or 0%)
+    Student ID: <strong>{{ cert.student_id }}</strong> has successfully completed the course<br>
+    <strong>{{ cert.course_name }}</strong><br>
+    with <strong>{{ cert.grade or 'N/A' }}</strong> Grade ({{ cert.percentage or 0 }}%)
   </p>
   <div style="display:flex;justify-content:center;gap:30px;margin-top:16px;font-size:.85rem;color:#475569">
-    <span>Duration: cert['duration'] or 'N/A'</span>
-    <span>Completed: cert['completion_date'] or 'N/A'</span>
+    <span>Duration: {{ cert.duration or 'N/A' }}</span>
+    <span>Completed: {{ cert.completion_date or 'N/A' }}</span>
   </div>
   <div class="csigs">
     <div class="csig"><div class="line"></div>Trainer</div>
     <div class="csig"><div class="line"></div>Director</div>
   </div>
-  <p style="margin-top:12px;font-size:.7rem;color:#94a3b8">Certificate No: cert['certificate_no']</p>
+  <p style="margin-top:12px;font-size:.7rem;color:#94a3b8">Certificate No: {{ cert.certificate_no }}</p>
 </div>
 {% endblock %}

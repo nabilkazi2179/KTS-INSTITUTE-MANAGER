@@ -3,8 +3,8 @@
 {% block content %}
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
   <div>
-    <h2 style="font-size:1.1rem">&#128221; exam['exam_name']</h2>
-    <p style="color:var(--m);font-size:.85rem">exam['course_name'] | exam['exam_date'] | Max: exam['max_marks']</p>
+    <h2 style="font-size:1.1rem">&#128221; {{ exam.exam_name }}</h2>
+    <p style="color:var(--m);font-size:.85rem">{{ exam.course_name }} | {{ exam.exam_date }} | Max: {{ exam.max_marks }}</p>
   </div>
   <a href="{{url_for('exams')}}" class="btn btn-outline btn-sm">&#8592; Back</a>
 </div>
@@ -13,14 +13,14 @@
     <div class="table-wrap"><table>
       <thead><tr><th>Student ID</th><th>Name</th><th>Theory</th><th>Practical</th><th>Total</th><th>%</th><th>Grade</th><th>Status</th></tr></thead>
       <tbody>{% for s in students %}<tr>
-        <td>s['student_id']</td>
-        <td>s['full_name']</td>
-        <td><input type="number" name="theory_s['id']" value="s['theory_marks']" step="0.5" min="0" style="width:70px;padding:4px 7px;border:1px solid var(--brd);border-radius:5px;font-size:.8rem"></td>
-        <td><input type="number" name="practical_s['id']" value="s['practical_marks']" step="0.5" min="0" style="width:70px;padding:4px 7px;border:1px solid var(--brd);border-radius:5px;font-size:.8rem"></td>
-        <td>s['total_marks'] or '-'</td>
-        <td>s['percentage'] or '-'%</td>
-        <td><strong>s['grade'] or '-'</strong></td>
-        <td>s['status'] or '-'</td>
+        <td>{{ s.student_id }}</td>
+        <td>{{ s.full_name }}</td>
+        <td><input type="number" name="theory_s['id']" value="{{ s.theory_marks }}" step="0.5" min="0" style="width:70px;padding:4px 7px;border:1px solid var(--brd);border-radius:5px;font-size:.8rem"></td>
+        <td><input type="number" name="practical_s['id']" value="{{ s.practical_marks }}" step="0.5" min="0" style="width:70px;padding:4px 7px;border:1px solid var(--brd);border-radius:5px;font-size:.8rem"></td>
+        <td>{{ s.total_marks or '-' }}</td>
+        <td>{{ s.percentage or '-' }}%</td>
+        <td><strong>{{ s.grade or '-' }}</strong></td>
+        <td>{{ s.status or '-' }}</td>
       </tr>{% endfor %}</tbody>
     </table></div>
     <button type="submit" class="btn btn-success" style="margin-top:12px">&#128194; Save All Results</button>

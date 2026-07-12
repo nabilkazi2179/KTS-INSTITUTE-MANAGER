@@ -10,7 +10,7 @@
       <input type="text" name="batch_name" placeholder="Batch Name" required style="padding:7px;border:1px solid var(--brd);border-radius:7px;font-size:.85rem;flex:1;min-width:120px">
       <select name="course_id" required style="padding:7px;border:1px solid var(--brd);border-radius:7px;font-size:.85rem">
         <option value="">Course</option>
-        {% for c in courses %}<option value="c['id']">c['course_name']</option>{% endfor %}
+        {% for c in courses %}<option value="{{ c.id }}">{{ c.course_name }}</option>{% endfor %}
       </select>
       <input type="text" name="timing" placeholder="Timing" style="padding:7px;border:1px solid var(--brd);border-radius:7px;font-size:.85rem;width:120px">
       <input type="date" name="start_date" style="padding:7px;border:1px solid var(--brd);border-radius:7px;font-size:.85rem">
@@ -22,13 +22,13 @@
   <div class="table-wrap"><table>
     <thead><tr><th>Batch</th><th>Course</th><th>Timing</th><th>Start</th><th>End</th><th>Strength</th><th>Status</th></tr></thead>
     <tbody>{% for b in batches %}<tr>
-      <td><strong>b['batch_name']</strong></td>
-      <td>b['course_name']</td>
-      <td>b['timing'] or 'N/A'</td>
-      <td>b['start_date'] or 'N/A'</td>
-      <td>b['end_date'] or 'N/A'</td>
-      <td>b['strength']/b['max_strength']</td>
-      <td><span class="badge b['status']">b['status']</span></td>
+      <td><strong>{{ b.batch_name }}</strong></td>
+      <td>{{ b.course_name }}</td>
+      <td>{{ b.timing or 'N/A' }}</td>
+      <td>{{ b.start_date or 'N/A' }}</td>
+      <td>{{ b.end_date or 'N/A' }}</td>
+      <td>{{ b.strength }}/{{ b.max_strength }}</td>
+      <td><span class="badge {{ b.status }}">{{ b.status }}</span></td>
     </tr>{% endfor %}</tbody>
   </table></div>
 </div>

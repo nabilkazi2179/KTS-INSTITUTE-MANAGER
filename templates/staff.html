@@ -24,12 +24,12 @@
   <div class="table-wrap"><table>
     <thead><tr><th>Name</th><th>Username</th><th>Email</th><th>Phone</th><th>Role</th><th>Status</th></tr></thead>
     <tbody>{% for u in users %}<tr>
-      <td><strong>u['full_name']</strong></td>
-      <td>u['username']</td>
-      <td>u['email'] or ''</td>
-      <td>u['phone'] or ''</td>
-      <td><span class="badge active">u['role']</span></td>
-      <td><span class="badge u['is_active']">u['is_active']</span></td>
+      <td><strong>{{ u.full_name }}</strong></td>
+      <td>{{ u.username }}</td>
+      <td>{{ u.email or '' }}</td>
+      <td>{{ u.phone or '' }}</td>
+      <td><span class="badge active">{{ u.role }}</span></td>
+      <td><span class="badge {{ u.is_active }}">{{ u.is_active }}</span></td>
     </tr>{% endfor %}</tbody>
   </table></div>
 </div>

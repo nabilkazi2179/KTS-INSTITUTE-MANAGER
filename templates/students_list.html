@@ -7,7 +7,7 @@
     <input type="text" name="search" value="{{request.args.get('search','')}}" placeholder="Search..." style="padding:7px 11px;border:1px solid var(--brd);border-radius:7px;font-size:.85rem;flex:1;min-width:180px">
     <select name="course" style="padding:7px;border:1px solid var(--brd);border-radius:7px;font-size:.85rem">
       <option value="">All Courses</option>
-      {% for c in courses %}<option value="c['id']" {% if request.args.get('course')|string==c['id']|string %}selected{% endif %}>c['course_name']</option>{% endfor %}
+      {% for c in courses %}<option value="{{ c.id }}" {% if request.args.get('course')|string==c['id']|string %}selected{% endif %}>{{ c.course_name }}</option>{% endfor %}
     </select>
     <select name="status" style="padding:7px;border:1px solid var(--brd);border-radius:7px;font-size:.85rem">
       <option value="">All Status</option>
@@ -20,11 +20,11 @@
     <thead><tr><th>Student ID</th><th>Name</th><th>Course</th><th>Mobile</th><th>Status</th><th>Actions</th></tr></thead>
     <tbody>
       {% for s in students %}<tr>
-        <td><a href="{{url_for('view_student',id=s['id'])}}"><strong>s['student_id']</strong></a></td>
-        <td>s['full_name']</td>
-        <td>s['course_name'] or 'N/A'</td>
-        <td>s['mobile'] or ''</td>
-        <td><span class="badge s['status']">s['status']</span></td>
+        <td><a href="{{url_for('view_student',id=s['id'])}}"><strong>{{ s.student_id }}</strong></a></td>
+        <td>{{ s.full_name }}</td>
+        <td>{{ s.course_name or 'N/A' }}</td>
+        <td>{{ s.mobile or '' }}</td>
+        <td><span class="badge {{ s.status }}">{{ s.status }}</span></td>
         <td><a href="{{url_for('view_student',id=s['id'])}}" class="btn btn-sm btn-outline">View</a></td>
       </tr>{% endfor %}
       {% if not students %}<tr><td colspan="6" style="text-align:center;color:var(--m);padding:20px">No students found</td></tr>{% endif %}

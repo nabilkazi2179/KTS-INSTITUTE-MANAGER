@@ -28,7 +28,7 @@
       <div class="fg"><label>Course *</label>
         <select name="course_id" id="courseSelect" required onchange="loadBatches(this.value)">
           <option value="">Select Course</option>
-          {% for c in courses %}<option value="c['id']">c['course_name'] (c['course_code'])</option>{% endfor %}
+          {% for c in courses %}<option value="{{ c.id }}">{{ c.course_name }} ({{ c.course_code }})</option>{% endfor %}
         </select>
       </div>
       <div class="fg"><label>Batch</label>
@@ -37,7 +37,7 @@
       <div class="fg"><label>Joining Date</label><input type="date" name="joining_date" value="{{now.strftime('%Y-%m-%d')}}"></div>
       <div class="fg"><label>Counselor</label>
         <select name="counselor_id"><option value="">Select</option>
-          {% for co in counselors %}<option value="co['id']">co['full_name']</option>{% endfor %}
+          {% for co in counselors %}<option value="{{ co.id }}">{{ co.full_name }}</option>{% endfor %}
         </select>
       </div>
     </div>

@@ -6,7 +6,7 @@
   <form method="GET" style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
     <select name="batch_id" required style="padding:7px;border:1px solid var(--brd);border-radius:7px;font-size:.85rem">
       <option value="">Select Batch</option>
-      {% for b in batches %}<option value="b['id']" {% if selected_batch|string==b['id']|string %}selected{% endif %}>b['batch_name'] (b['course_name'])</option>{% endfor %}
+      {% for b in batches %}<option value="{{ b.id }}" {% if selected_batch|string==b['id']|string %}selected{% endif %}>{{ b.batch_name }} ({{ b.course_name }})</option>{% endfor %}
     </select>
     <input type="date" name="date" value="{{date}}" style="padding:7px;border:1px solid var(--brd);border-radius:7px;font-size:.85rem">
     <button type="submit" class="btn btn-primary btn-sm">Load</button>
@@ -18,8 +18,8 @@
     <div class="table-wrap"><table>
       <thead><tr><th>Student ID</th><th>Name</th><th>Present</th><th>Absent</th><th>Late</th></tr></thead>
       <tbody>{% for s in students %}<tr>
-        <td>s['student_id']</td>
-        <td>s['full_name']</td>
+        <td>{{ s.student_id }}</td>
+        <td>{{ s.full_name }}</td>
         <td><input type="radio" name="status_s['id']" value="present" {% if s['att_status']=='present' %}checked{% endif %}></td>
         <td><input type="radio" name="status_s['id']" value="absent" {% if not s['att_status'] or s['att_status']=='absent' %}checked{% endif %}></td>
         <td><input type="radio" name="status_s['id']" value="late" {% if s['att_status']=='late' %}checked{% endif %}></td>
