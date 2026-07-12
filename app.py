@@ -30,7 +30,10 @@ if not TELEGRAM_BOT_TOKEN:
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
 # ── Database Config ──────────────────────────────────────────
-DATABASE_URL = os.environ.get('DATABASE_URL', '') or os.environ.get('POSTGRES_URL', '') or os.environ.get('POSTGRES_PRISMA_URL', '')
+DATABASE_URL = (os.environ.get('DATABASE_URL', '')
+                or os.environ.get('POSTGRES_URL_NON_POOLING', '')
+                or os.environ.get('POSTGRES_URL', '')
+                or os.environ.get('POSTGRES_PRISMA_URL', ''))
 DB_MODE = 'sqlite'
 DB_PATH = ':memory:'
 _last_rowcount = 0
@@ -747,9 +750,15 @@ def health():
             ex("INSERT INTO courses (course_code,course_name,duration,fees,description) VALUES (?,?,?,?,?)",
                (code,'probe-course','1d',1,'x'))
             new_co = q("SELECT COUNT(*) as c FROM courses")[0]['c']
+        import urllib.parse as _up
+        _pu = _up.urlparse(DATABASE_URL) if DATABASE_URL else None
+        _host = _pu.hostname if _pu else None
+        _pooling = 'pgbouncer=true' in DATABASE_URL if DATABASE_URL else False
         return jsonify({'status':'ok','db':DB_MODE,'courses':co,'write_test':wrote,'probe_courses':new_co,
                         'has_postgres_url': bool(os.environ.get('POSTGRES_URL')),
-                        'has_database_url': bool(os.environ.get('DATABASE_URL'))})
+                        'has_non_pooling': bool(os.environ.get('POSTGRES_URL_NON_POOLING')),
+                        'has_database_url': bool(os.environ.get('DATABASE_URL')),
+                        'db_host': _host, 'pgbouncer_in_url': _pooling})
     except Exception as e:
         return jsonify({'status':'error','error':str(e)})
 
