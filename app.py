@@ -548,7 +548,7 @@ def exam_results(eid):
             else: gr='F'; sr='Fail'
             exi=q("SELECT id FROM exam_results WHERE exam_id=? AND student_id=?",(eid,st['id']),one=True)
             if exi:
-                ex("UPDATE exam_results SET theory_marks=?,practical_motal_marks=?,percentage=?,grade=?,status=? WHERE id=?",(th,pr,tot2,pct,gr,sr,exi['id']))
+                ex("UPDATE exam_results SET theory_marks=?,practical_marks=?,total_marks=?,percentage=?,grade=?,status=? WHERE id=?",(th,pr,tot2,pct,gr,sr,exi['id']))
             else:
                 ex("INSERT INTO exam_results (exam_id,student_id,theory_marks,practical_marks,total_marks,percentage,grade,status) VALUES (?,?,?,?,?,?,?,?)",(eid,st['id'],th,pr,tot2,pct,gr,sr))
         flash('Results saved!','success'); return redirect(url_for('exam_results',eid=eid))
