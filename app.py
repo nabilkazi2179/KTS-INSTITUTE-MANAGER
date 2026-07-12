@@ -559,7 +559,7 @@ def exam_results(eid):
             else:
                 ex("INSERT INTO exam_results (exam_id,student_id,theory_marks,practical_marks,total_marks,percentage,grade,status) VALUES (?,?,?,?,?,?,?,?)",(eid,st['id'],th,pr,tot2,pct,gr,sr))
         flash('Results saved!','success'); return redirect(url_for('exam_results',eid=eid))
-    studs=q("SELECT s.id,s.full_name,s.student_id,er.theory_marks,er.practical_marks,er.total_marks,er.percentage,er.grade,er.status FROM students s LEFT JOIN exam_results er ON er.student_id=s.id AND er.exam_id=? WHERE s.course_id=? AND s.status='active'",(eid,exm[course_id]))
+    studs=q("SELECT s.id,s.full_name,s.student_id,er.theory_marks,er.practical_marks,er.total_marks,er.percentage,er.grade,er.status FROM students s LEFT JOIN exam_results er ON er.student_id=s.id AND er.exam_id=? WHERE s.course_id=? AND s.status='active'",(eid,exm['course_id']))
     return render_template('exam_results.html',exam=exm,students=studs)
 
 @app.route('/certificates')
