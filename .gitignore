@@ -6,3 +6,5 @@ kts_institute.db
 static/uploads/
 .venv/
 venv/
+
+.vercel

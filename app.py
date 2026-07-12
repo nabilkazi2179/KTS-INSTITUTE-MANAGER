@@ -2,7 +2,7 @@
 KTS Institute Management System - Konkan Technology Services
 Complete Student Lifecycle Management Application
 """
-import os, uuid, json, io, csv, urllib.request, urllib.parse, sqlite3
+import os, uuid, json, io, csv, urllib.request, urllib.parse, sqlite3, re
 from datetime import datetime, date, timedelta
 from datetime import datetime, date, timedelta
 from functools import wraps
@@ -214,6 +214,12 @@ def init_db():
         recipient_type TEXT, type TEXT, subject TEXT, message TEXT,
         channel TEXT DEFAULT 'system', is_sent INTEGER DEFAULT 0,
         sent_at TEXT, created_at TEXT)''')
+    # Ensure optional columns exist (safe on re-runs / existing DBs)
+    def _add_col(tbl, col, typ):
+        try: cur.execute(f'ALTER TABLE {tbl} ADD COLUMN {col} {typ}')
+        except Exception: pass
+    _add_col('users','telegram_id','BIGINT')
+    _add_col('users','tg_link_code','TEXT')
     
     db.commit()
     # Admin
@@ -407,6 +413,7 @@ def add_student():
         ex("INSERT INTO fee_structures (student_id,registration_fee,admission_fee,course_fee,exam_fee,certificate_fee,misc_fee,total_fee) VALUES (?,?,?,?,?,?,?,?)",
             (iid,rf,af,cf2,ef,cef,mf,tot))
         log(session['user_id'],'create','students',iid,f'Admitted {sid}')
+        notify_users(f"🎓 New student admitted: {fn} ({sid}) — by {session.get('full_name','Admin')}", session['user_id'])
         flash(f'Student admitted! ID: {sid}','success'); return redirect(url_for('view_student',id=iid))
     return render_template('add_student.html',courses=cl,batches=bl,counselors=co)
 
@@ -453,6 +460,45 @@ def student_portal():
     rr=q("SELECT er.*,e.exam_name FROM exam_results er JOIN exams e ON er.exam_id=e.id WHERE er.student_id=? ORDER BY e.exam_date DESC",(sid,))
     ct=q("SELECT * FROM certificates WHERE student_id=? ORDER BY id DESC",(sid,))
     return render_template('student_portal.html',student=st,tf=tf,tp=tp,pn=pn,pay=pay,ar=ar,rr=rr,ct=ct)
+
+@app.route('/link_telegram', methods=['GET','POST'])
+@login_required
+def link_telegram():
+    uid = session['user_id']
+    usr = q("SELECT telegram_id,tg_link_code FROM users WHERE id=?", (uid,), one=True)
+    if request.method == 'POST':
+        act = request.form.get('action')
+        if act == 'generate':
+            import random, string
+            code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+            ex("UPDATE users SET tg_link_code=? WHERE id=?", (code, uid))
+            flash(f'Code generated: {code}. Send it to the bot on Telegram.', 'success')
+        elif act == 'confirm':
+            code = request.form.get('code', '').strip().upper()
+            if code and code == (usr['tg_link_code'] or ''):
+                ex("UPDATE users SET telegram_id=?, tg_link_code=NULL WHERE id=?", (request.form.get('chat_id',''), uid))
+                flash('Telegram linked! 🎉', 'success')
+            else:
+                flash('Invalid code. Try again.', 'danger')
+        elif act == 'unlink':
+            ex("UPDATE users SET telegram_id=NULL WHERE id=?", (uid,))
+            flash('Telegram unlinked.', 'info')
+        return redirect(url_for('link_telegram'))
+    return render_template('link_telegram.html', user=usr)
+
+@app.route('/telegram/link', methods=['POST'])
+def telegram_link_api():
+    """Called by the web page after the user sends the code to the bot.
+    Body: {code, chat_id} -> links that chat_id to the matching user."""
+    code = (request.get_json(force=True).get('code') or '').strip().upper()
+    chat_id = request.get_json(force=True).get('chat_id')
+    if not code or not chat_id: return jsonify({'ok': False, 'error': 'missing'}), 400
+    u = q("SELECT id,full_name FROM users WHERE tg_link_code=? AND is_active=1", (code,), one=True)
+    if not u: return jsonify({'ok': False, 'error': 'invalid code'}), 404
+    ex("UPDATE users SET telegram_id=?, tg_link_code=NULL WHERE id=?", (chat_id, u['id']))
+    tg_send(chat_id, f'✅ Linked! Welcome {u["full_name"]}. Type /help for commands.')
+    return jsonify({'ok': True})
+
 
 @app.route('/courses')
 @login_required
@@ -517,6 +563,8 @@ def record_payment(student_id):
     ex("INSERT INTO fee_payments (student_id,receipt_no,amount,payment_method,installment_no,remarks,collected_by) VALUES (?,?,?,?,?,?,?)",
         (student_id,rcp,amt,request.form.get('payment_method','Cash'),int(request.form.get('installment_no',0) or 0),request.form.get('remarks',''),session['user_id']))
     log(session['user_id'],'fee_payment','fee_payments',student_id,f'Rs.{amt} - {rcp}')
+    stn=q("SELECT full_name FROM students WHERE id=?",(student_id,),one=True)
+    notify_users(f"💰 Fee received: ₹{amt:,.0f} from {stn['full_name'] if stn else 'student'} (Receipt {rcp}) — by {session.get('full_name','Admin')}", session['user_id'])
     flash(f'Payment recorded! Receipt: {rcp}','success'); return redirect(url_for('view_student',id=student_id))
 
 @app.route('/fees/receipt/<int:payment_id>')
@@ -694,7 +742,6 @@ def export_report(rtype):
             w.writerow([s['student_id'],s['full_name'],s['total_fee'],s['paid'],(s['total_fee'] or 0)-s['paid']])
     output.seek(0)
     return send_file(io.BytesIO(output.getvalue().encode()),mimetype='text/csv',as_attachment=True,download_name=f'{rtype}_report.csv')
-
 # ── Telegram ──
 def tg_send(chat_id, text, parse_mode='HTML'):
     if not TELEGRAM_API: return False
@@ -707,42 +754,76 @@ def tg_send(chat_id, text, parse_mode='HTML'):
         print(f'Telegram send error: {e}')
         return False
 
+def tg_broadcast(text, parse_mode='HTML'):
+    """Send a message to every KTS user who has linked their Telegram."""
+    sent = 0
+    for u in q("SELECT telegram_id FROM users WHERE telegram_id IS NOT NULL AND telegram_id<>0 AND is_active=1"):
+        if tg_send(u['telegram_id'], text, parse_mode):
+            sent += 1
+    return sent
+
+def notify_users(message, exclude_user_id=None):
+    """Notify all linked Telegram users except the one who triggered the action."""
+    for u in q("SELECT telegram_id FROM users WHERE telegram_id IS NOT NULL AND telegram_id<>0 AND is_active=1 AND id<>?", (exclude_user_id or -1,)):
+        tg_send(u['telegram_id'], message)
+
 @app.route('/telegram/webhook', methods=['POST'])
 def telegram_webhook():
     if not TELEGRAM_BOT_TOKEN: return jsonify({'ok': False, 'error': 'not configured'})
     data = request.get_json(force=True)
     message = data.get('message', {})
-    chat_id = message.get('chat', {}).get('id')
-    text = message.get('text', '').strip()
+    chat = message.get('chat', {})
+    chat_id = chat.get('id')
+    text = (message.get('text') or '').strip()
     user_id = message.get('from', {}).get('id')
     if not chat_id or not text: return jsonify({'ok': True})
-    user = q("SELECT * FROM users WHERE phone=? AND is_active=1", (str(user_id),), one=True)
-    if not user: tg_send(chat_id, '� Not authorized. Contact admin.'); return jsonify({'ok': True})
+    # Lookup by linked telegram_id
+    user = q("SELECT * FROM users WHERE telegram_id=? AND is_active=1", (user_id,), one=True)
+    if not user:
+        tg_send(chat_id, '🔒 Not linked. Open KTS in your browser → click <b>Link Telegram</b> in the top-right menu, then send the code shown there here.')
+        return jsonify({'ok': True})
+    fn = user['full_name']
     cmd = text.lower().split()[0] if text else ''
     if cmd == '/start':
-        tg_send(chat_id, f'🏫 <b>Welcome to KTS Institute Manager!</b>\n:\n/students\n/fees\n/courses\n/batches\n/reports\n/help')
+        tg_send(chat_id, f'🏫 <b>Welcome, {fn}!</b>\nYou are connected to KTS Institute Manager.\n\nCommands:\n/students\n/fees\n/courses\n/batches\n/reports\n/help')
     elif cmd == '/help':
-        tg_send(chat_id, '<b>📋 Commands</b>\n\n/students - List students\n/fees - Fee summary\n/courses - Courses list\n/batches - Batches\n/reports - Reports')
+        tg_send(chat_id, '<b>📋 Commands</b>\n/students - Recent students\n/fees - Fee summary\n/courses - Courses\n/batches - Batches\n/reports - Reports\n/me - Your profile')
     elif cmd == '/students':
-        lines = ['<b>🎓 Students</b>']
-        for s in q("SELECT student_id,full_name FROM students WHERE status='active' ORDER BY id DESC LIMIT 10"):
-            lines.append(f"• {s['full_name']} ({s['student_id']})")
+        lines = ['<b>🎓 Recent Students</b>']
+        for s in q("SELECT student_id,full_name,course_id FROM students WHERE status='active' ORDER BY id DESC LIMIT 10"):
+            cn = q("SELECT course_code FROM courses WHERE id=?", (s['course_id'],), one=True)
+            lines.append(f"• {s['full_name']} ({s['student_id']}) {cn['course_code'] if cn else ''}")
         tg_send(chat_id, '\n'.join(lines))
     elif cmd == '/fees':
         tc = q("SELECT COALESCE(SUM(amount),0) as s FROM fee_payments")[0]['s'] or 0
         ac = q("SELECT COUNT(*) as c FROM students WHERE status='active'")[0]['c']
-        tg_send(chat_id, f'<b>💰 Fees</b>\n\nStudents: {ac}\nCollected: ₹{tc:,.0f}')
+        tg_send(chat_id, f'<b>💰 Fees</b>\n\nActive students: {ac}\nCollected total: ₹{tc:,.0f}')
     elif cmd == '/courses':
-        lines = ['<b>� Courses</b>']
-        for c in q("SELECT course_name FROM courses WHERE is_active=1"):
-            lines.append(f"• {c['course_name']}")
+        lines = ['<b>📚 Courses</b>']
+        for c in q("SELECT course_code,course_name,fees FROM courses WHERE is_active=1"):
+            lines.append(f"• {c['course_name']} ({c['course_code']}) - ₹{c['fees']:,.0f}")
+        tg_send(chat_id, '\n'.join(lines))
+    elif cmd == '/batches':
+        lines = ['<b>📦 Batches</b>']
+        for b in q("SELECT b.batch_name,c.course_name,b.status FROM batches b JOIN courses c ON b.course_id=c.id ORDER BY b.id DESC LIMIT 10"):
+            lines.append(f"• {b['batch_name']} ({b['course_name']}) - {b['status']}")
         tg_send(chat_id, '\n'.join(lines))
     elif cmd == '/reports':
         ts = q("SELECT COUNT(*) as c FROM students")[0]['c']
         cs = q("SELECT COUNT(*) as c FROM certificates")[0]['c']
-        tg_send(chat_id, f'<b>📊 Report</b>\n\nStudents: {ts}\nCertificates: {cs}')
+        ac = q("SELECT COUNT(*) as c FROM students WHERE status='active'")[0]['c']
+        tg_send(chat_id, f'<b>📊 Report</b>\n\nTotal students: {ts}\nActive: {ac}\nCertificates: {cs}')
+    elif cmd == '/me':
+        tg_send(chat_id, f'<b>👤 {fn}</b>\nRole: {user["role"]}\nTelegram: linked ✅')
+    elif re.fullmatch(r'[A-Z0-9]{6}', text):
+        # Linking code from the web "Link Telegram" page
+        u = q("SELECT id,full_name FROM users WHERE tg_link_code=? AND is_active=1", (text,), one=True)
+        if u:
+            tg_send(chat_id, f'✅ Code accepted! Your Telegram chat ID is:\n\n<code>{chat_id}</code>\n\nNow paste this number into the <b>Link Telegram</b> page in KTS and click Confirm. (Or just tell your admin.)')
+        else:
+            tg_send(chat_id, '🔒 That code is not valid or already used. Generate one from the Link Telegram page in KTS.')
     else:
-        tg_send(chat_id, 'Unknown. Type /help')
+        tg_send(chat_id, 'Unknown command. Type /help')
     return jsonify({'ok': True})
 
 # ── Auto-init DB & Error handlers ──

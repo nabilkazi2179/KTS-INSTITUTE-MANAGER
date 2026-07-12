@@ -124,7 +124,8 @@ tr:hover td{background:rgba(79,70,229,.03)}
     </div>
     <div style="display:flex;gap:6px;align-items:center">
       <button onclick="document.body.classList.toggle('dark');localStorage.setItem('dm',document.body.classList.contains('dark'))" class="btn btn-outline btn-sm">&#127769;</button>
-      <a href="{{url_for('logout')}} class="btn btn-outline btn-sm">Logout</a>
+      <a href="{{url_for('link_telegram')}}" class="btn btn-outline btn-sm">&#128241; Link TG</a>
+      <a href="{{url_for('logout')}}" class="btn btn-outline btn-sm">Logout</a>
     </div>
   </div>
   <div class="content">

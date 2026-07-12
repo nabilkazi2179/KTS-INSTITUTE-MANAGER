@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Link Telegram{% endblock %}
+{% block content %}
+<div style="max-width:560px;margin:0 auto">
+  <div class="card">
+    <div class="card-title">📱 Link your Telegram account</div>
+    <p style="color:var(--m);font-size:.88rem;margin-bottom:16px">
+      Connect Telegram so you get live KTS notifications and can check reports from your phone.
+    </p>
+
+    {% if user and user.telegram_id %}
+      <div style="padding:14px;background:#d1fae5;border-radius:8px;border:1px solid #a7f3d0;margin-bottom:16px">
+        <p style="color:#065f46;font-weight:600;margin-bottom:6px">✅ Telegram is linked</p>
+        <p style="font-size:.82rem;color:#065f46">Chat ID: {{ user.telegram_id }}</p>
+      </div>
+      <form method="POST">
+        <input type="hidden" name="action" value="unlink">
+        <button class="btn btn-danger">Unlink Telegram</button>
+      </form>
+    {% else %}
+      <h4 style="margin-bottom:10px;font-size:.9rem">Step 1 — Generate a code</h4>
+      <form method="POST" style="margin-bottom:18px">
+        <input type="hidden" name="action" value="generate">
+        <button class="btn btn-primary">Generate Link Code</button>
+      </form>
+
+      {% if user and user.tg_link_code %}
+        <div style="padding:14px;background:#dbeafe;border-radius:8px;border:1px solid #bfdbfe;margin-bottom:18px">
+          <p style="font-size:.82rem;color:#1e40af;margin-bottom:6px">Your code:</p>
+          <p style="font-size:1.4rem;font-weight:700;letter-spacing:3px;color:#1e3a8a">{{ user.tg_link_code }}</p>
+        </div>
+        <h4 style="margin-bottom:10px;font-size:.9rem">Step 2 — Send the code to the bot</h4>
+        <p style="font-size:.85rem;color:var(--m);margin-bottom:10px">
+          Open Telegram, message <b>@Kts_institute_bot</b>, and send exactly this code.
+          The bot will reply with your chat ID.
+        </p>
+        <h4 style="margin-bottom:10px;font-size:.9rem">Step 3 — Confirm</h4>
+        <form method="POST">
+          <input type="hidden" name="action" value="confirm">
+          <div class="fg" style="margin-bottom:12px">
+            <label>Paste the chat ID the bot sent you</label>
+            <input type="text" name="chat_id" placeholder="e.g. 1430761573" required>
+          </div>
+          <button class="btn btn-success">Confirm Link</button>
+        </form>
+      {% else %}
+        <p style="font-size:.85rem;color:var(--m)">Click "Generate Link Code" to begin.</p>
+      {% endif %}
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
