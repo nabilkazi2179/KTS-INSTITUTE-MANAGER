@@ -456,7 +456,7 @@ def view_student(id):
     pay=q("SELECT * FROM fee_payments WHERE student_id=? ORDER BY payment_date DESC",(id,))
     tp=paid_amt(id); tf=fs['total_fee'] if fs else 0; pn=max(0,tf-tp)
     ar=q("SELECT * FROM attendance WHERE student_id=? ORDER BY attendance_date DESC LIMIT 30",(id,))
-    rr=q("SELECT er.*,e.exam_name FROM exam_results er JOIN exams e ON er.exam_id=e.id WHERE er.student_id=? ORDER BY e.exam_date DESC",(id,))
+    rr=q("SELECT er.*,e.exam_name,e.exam_type FROM exam_results er JOIN exams e ON er.exam_id=e.id WHERE er.student_id=? ORDER BY e.exam_date DESC",(id,))
     ct=q("SELECT * FROM certificates WHERE student_id=? ORDER BY id DESC",(id,))
     ap=round(sum(1 for a in ar if a['status']=='present')/len(ar)*100) if ar else 0
     return render_template('view_student.html',student=st,fs=fs,pay=pay,tp=tp,tf=tf,pn=pn,ar=ar,rr=rr,ct=ct,ap=ap)
@@ -487,7 +487,7 @@ def student_portal():
     pay=q("SELECT * FROM fee_payments WHERE student_id=? ORDER BY payment_date DESC",(sid,))
     tp=sum(p['amount'] for p in pay); tf=fs['total_fee'] if fs else 0; pn=max(0,tf-tp)
     ar=q("SELECT * FROM attendance WHERE student_id=? ORDER BY attendance_date DESC LIMIT 30",(sid,))
-    rr=q("SELECT er.*,e.exam_name FROM exam_results er JOIN exams e ON er.exam_id=e.id WHERE er.student_id=? ORDER BY e.exam_date DESC",(sid,))
+    rr=q("SELECT er.*,e.exam_name,e.exam_type FROM exam_results er JOIN exams e ON er.exam_id=e.id WHERE er.student_id=? ORDER BY e.exam_date DESC",(sid,))
     ct=q("SELECT * FROM certificates WHERE student_id=? ORDER BY id DESC",(sid,))
     return render_template('student_portal.html',student=st,tf=tf,tp=tp,pn=pn,pay=pay,ar=ar,rr=rr,ct=ct)
 
@@ -579,7 +579,7 @@ def add_batch():
 @app.route('/fees')
 @login_required
 def fees():
-    fd=q("SELECT s.id,s.student_id,s.full_name,s.mobile,c.course_name,fs.total_fee,COALESCE((SELECT SUM(amount) FROM fee_payments WHERE student_id=s.id),0) as paid FROM students s LEFT JOIN courses c ON s.course_id=c.id LEFT JOIN fee_structures fs ON fs.student_id=s.id WHERE s.status='active' ORDER BY s.full_name")
+    fd=q("SELECT s.id,s.student_id,s.full_name,s.mobile,c.course_name,fs.total_fee,COALESCE((SELECT SUM(amount) FROM fee_payments WHERE student_id=s.id),0) as paid,(SELECT payment_date FROM fee_payments WHERE student_id=s.id ORDER BY payment_date DESC LIMIT 1) as last_payment_date FROM students s LEFT JOIN courses c ON s.course_id=c.id LEFT JOIN fee_structures fs ON fs.student_id=s.id WHERE s.status='active' ORDER BY s.full_name")
     tp=sum(max(0,(f['total_fee'] or 0)-f['paid']) for f in fd); tc=sum(f['paid'] for f in fd)
     return render_template('fees.html',fee_data=fd,tp=tp,tc=tc)
 
@@ -590,8 +590,8 @@ def record_payment(student_id):
     amt=float(request.form.get('amount',0))
     if amt<=0: flash('Amount > 0 required.','danger'); return redirect(url_for('view_student',id=student_id))
     rcp=gen_receipt()
-    ex("INSERT INTO fee_payments (student_id,receipt_no,amount,payment_method,installment_no,remarks,collected_by) VALUES (?,?,?,?,?,?,?)",
-        (student_id,rcp,amt,request.form.get('payment_method','Cash'),int(request.form.get('installment_no',0) or 0),request.form.get('remarks',''),session['user_id']))
+    ex("INSERT INTO fee_payments (student_id,receipt_no,amount,payment_date,payment_method,installment_no,remarks,collected_by) VALUES (?,?,?,?,?,?,?,?)",
+        (student_id,rcp,amt,date.today().isoformat(),request.form.get('payment_method','Cash'),int(request.form.get('installment_no',0) or 0),request.form.get('remarks',''),session['user_id']))
     log(session['user_id'],'fee_payment','fee_payments',student_id,f'Rs.{amt} - {rcp}')
     stn=q("SELECT full_name FROM students WHERE id=?",(student_id,),one=True)
     notify_users(f"💰 Fee received: ₹{amt:,.0f} from {stn['full_name'] if stn else 'student'} (Receipt {rcp}) — by {session.get('full_name','Admin')}", session['user_id'])
@@ -706,6 +706,13 @@ def verify_certificate():
 def trainers():
     tr=q("SELECT t.*,u.full_name,u.email,u.phone FROM trainers t JOIN users u ON t.user_id=u.id ORDER BY u.full_name")
     return render_template('trainers.html',trainers=tr)
+
+@app.route('/trainers/<int:id>')
+@login_required
+def view_trainer(id):
+    t=q("SELECT t.*,u.full_name,u.email,u.phone FROM trainers t JOIN users u ON t.user_id=u.id WHERE t.id=?",(id,),one=True)
+    if not t: abort(404)
+    return render_template('trainer_view.html',t=t)
 
 @app.route('/trainers/add',methods=['POST'])
 @login_required

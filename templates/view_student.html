@@ -80,11 +80,11 @@
     <div id="tab-results" style="display:none">
       <div class="card"><div class="card-title">Exam Results</div>
         {% if rr %}<div class="table-wrap"><table>
-          <thead><tr><th>Exam</th><th>Theory</th><th>Practical</th><th>Total</th><th>%</th><th>Grade</th><th>Status</th></tr></thead>
+          <thead><tr><th>Exam</th>{% if r.exam_type in ('theory','both') %}<th>Theory</th>{% endif %}{% if r.exam_type in ('practical','both') %}<th>Practical</th>{% endif %}<th>Total</th><th>%</th><th>Grade</th><th>Status</th></tr></thead>
           <tbody>{% for r in rr %}<tr>
             <td>{{ r.exam_name }}</td>
-            <td>{{ r.theory_marks or '-' }}</td>
-            <td>{{ r.practical_marks or '-' }}</td>
+            {% if r.exam_type in ('theory','both') %}<td>{{ r.theory_marks or '-' }}</td>{% endif %}
+            {% if r.exam_type in ('practical','both') %}<td>{{ r.practical_marks or '-' }}</td>{% endif %}
             <td>{{ r.total_marks or '-' }}</td>
             <td>{{ r.percentage or '-' }}%</td>
             <td><strong>{{ r.grade or '-' }}</strong></td>

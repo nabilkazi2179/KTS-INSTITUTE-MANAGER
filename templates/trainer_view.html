@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Trainer Details{% endblock %}
+{% block content %}
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+  <h2 style="font-size:1.1rem">&#128104;&#8205;&#127979; {{ t.full_name }}</h2>
+  <a href="{{url_for('trainers')}}" class="btn btn-outline btn-sm">&#8592; Back</a>
+</div>
+<div class="card">
+  <div class="card-title">Profile</div>
+  <p style="font-size:.9rem;margin-bottom:6px">&#9993; {{ t.email or 'N/A' }}</p>
+  <p style="font-size:.9rem;margin-bottom:6px">&#128241; {{ t.phone or 'N/A' }}</p>
+  <p style="font-size:.9rem;margin-bottom:6px">&#127891; Qualification: {{ t.qualification or 'N/A' }}</p>
+  <p style="font-size:.9rem;margin-bottom:6px">&#9881;&#65039; Specialization: <strong>{{ t.specialization or 'N/A' }}</strong></p>
+  <p style="font-size:.9rem;margin-bottom:6px">&#128202; Experience: {{ t.experience or 'N/A' }} yrs</p>
+  <p style="font-size:.9rem;margin-bottom:6px">&#128176; Salary: &#8377;{{ "{:,.0f}".format(t['salary'] or 0) }}</p>
+  <p style="font-size:.9rem">&#128197; Joining: {{ t.joining_date or 'N/A' }}</p>
+</div>
+{% endblock %}

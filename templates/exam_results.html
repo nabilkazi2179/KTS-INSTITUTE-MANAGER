@@ -11,12 +11,12 @@
 <div class="card">
   <form method="POST">
     <div class="table-wrap"><table>
-      <thead><tr><th>Student ID</th><th>Name</th><th>Theory</th><th>Practical</th><th>Total</th><th>%</th><th>Grade</th><th>Status</th></tr></thead>
+      <thead><tr><th>Student ID</th><th>Name</th>{% if exam.exam_type in ('theory','both') %}<th>Theory</th>{% endif %}{% if exam.exam_type in ('practical','both') %}<th>Practical</th>{% endif %}<th>Total</th><th>%</th><th>Grade</th><th>Status</th></tr></thead>
       <tbody>{% for s in students %}<tr>
         <td>{{ s.student_id }}</td>
         <td>{{ s.full_name }}</td>
-        <td><input type="number" name="theory_{{ s.id }}" value="{{ s.theory_marks }}" step="0.5" min="0" style="width:70px;padding:4px 7px;border:1px solid var(--brd);border-radius:5px;font-size:.8rem"></td>
-        <td><input type="number" name="practical_{{ s.id }}" value="{{ s.practical_marks }}" step="0.5" min="0" style="width:70px;padding:4px 7px;border:1px solid var(--brd);border-radius:5px;font-size:.8rem"></td>
+        {% if exam.exam_type in ('theory','both') %}<td><input type="number" name="theory_{{ s.id }}" value="{{ s.theory_marks }}" step="0.5" min="0" style="width:70px;padding:4px 7px;border:1px solid var(--brd);border-radius:5px;font-size:.8rem"></td>{% endif %}
+        {% if exam.exam_type in ('practical','both') %}<td><input type="number" name="practical_{{ s.id }}" value="{{ s.practical_marks }}" step="0.5" min="0" style="width:70px;padding:4px 7px;border:1px solid var(--brd);border-radius:5px;font-size:.8rem"></td>{% endif %}
         <td>{{ s.total_marks or '-' }}</td>
         <td>{{ s.percentage or '-' }}%</td>
         <td><strong>{{ s.grade or '-' }}</strong></td>

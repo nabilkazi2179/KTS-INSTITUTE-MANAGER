@@ -19,12 +19,13 @@
     </form>
   </div>
   <div class="table-wrap"><table>
-    <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Qualification</th><th>Experience</th><th>Salary</th></tr></thead>
+    <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Qualification</th><th>Specialization</th><th>Experience</th><th>Salary</th></tr></thead>
     <tbody>{% for t in trainers %}<tr>
-      <td><strong>{{ t.full_name }}</strong></td>
+      <td><strong><a href="{{url_for('view_trainer',id=t['id'])}}">{{ t.full_name }}</a></strong></td>
       <td>{{ t.email or 'N/A' }}</td>
       <td>{{ t.phone or 'N/A' }}</td>
       <td>{{ t.qualification or 'N/A' }}</td>
+      <td>{{ t.specialization or 'N/A' }}</td>
       <td>{{ t.experience or 'N/A' }}</td>
       <td>{{"{:,.0f}".format(t['salary'] or 0)}}</td>
     </tr>{% endfor %}</tbody>
