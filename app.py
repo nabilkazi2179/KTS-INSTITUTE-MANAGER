@@ -732,6 +732,30 @@ def add_staff():
         (un,generate_password_hash('kts123'),request.form.get('full_name',''),request.form.get('email',''),request.form.get('phone',''),request.form.get('role','staff')))
     flash('Staff added!','success'); return redirect(url_for('staff'))
 
+@app.route('/admin/telegram_token', methods=['GET','POST'])
+@login_required
+@role_required('super_admin')
+def admin_telegram_token():
+    if request.method == 'POST':
+        tok = request.form.get('token','').strip()
+        if tok and tok.count(':') == 1:
+            set_setting('TELEGRAM_BOT_TOKEN', tok)
+            flash('Telegram bot token saved!','success')
+        else:
+            flash('Invalid token format.','danger')
+        return redirect(url_for('admin_telegram_token'))
+    cur = get_setting('TELEGRAM_BOT_TOKEN', '')
+    masked = (cur[:6] + '…' + cur[-4:]) if cur else ''
+    return f'''<div style="font-family:sans-serif;max-width:520px;margin:40px auto;padding:20px;border:1px solid #ddd;border-radius:10px">
+      <h3>🔑 Telegram Bot Token</h3>
+      <p>Current: <code>{masked or 'not set'}</code></p>
+      <form method="POST">
+        <input name="token" placeholder="123456:ABC…" style="width:100%;padding:8px;margin:8px 0" required>
+        <button style="padding:8px 16px;background:#4f46e5;color:#fff;border:none;border-radius:6px">Save</button>
+      </form>
+      <p style="font-size:.8rem;color:#888">Stored in DB settings table. The bot reads it from there on Vercel.</p>
+    </div>'''
+
 @app.route('/reports')
 @login_required
 def reports():
