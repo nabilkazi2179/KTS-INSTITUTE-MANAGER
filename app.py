@@ -422,14 +422,14 @@ def add_student():
         if em:
             suid=ex("INSERT INTO users (username,password_hash,full_name,email,phone,role) VALUES (?,?,?,?,?,?)",
                 (sid,generate_password_hash('kts123'),fn,em,request.form.get('mobile',''),'student'))
-        iid=ex("INSERT INTO students (student_id,full_name,guardian_name,dob,gender,mobile,whatsapp,email,address,city,state,country,id_number,qualification,photo,id_proof,joining_date,course_id,batch_id,counselor_id,remarks,user_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        iid=ex("INSERT INTO students (student_id,full_name,guardian_name,dob,gender,mobile,whatsapp,email,address,city,state,country,id_number,qualification,photo,id_proof,joining_date,course_id,batch_id,counselor_id,remarks,user_id,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (sid,fn,request.form.get('guardian_name',''),request.form.get('dob',''),request.form.get('gender',''),
              request.form.get('mobile',''),request.form.get('whatsapp',''),em,
              request.form.get('address',''),request.form.get('city',''),request.form.get('state',''),
              request.form.get('country','India'),request.form.get('id_number',''),request.form.get('qualification',''),
              ph,ip,request.form.get('joining_date',date.today().isoformat()),
              cid,request.form.get('batch_id') or None,request.form.get('counselor_id') or None,
-             request.form.get('remarks',''),suid))
+             request.form.get('remarks',''),suid,datetime.now().isoformat()))
         rf=float(request.form.get('registration_fee',0) or 0)
         af=float(request.form.get('admission_fee',0) or 0)
         cf2=float(request.form.get('course_fee',0) or 0)
@@ -558,7 +558,7 @@ def toggle_course(id):
 @app.route('/batches')
 @login_required
 def batches():
-    return render_template('batches.html',batches=q("SELECT b.*,c.course_name,(SELECT COUNT(*) FROM students WHERE batch_id=b.id) as strength FROM batches b JOIN courses c ON b.course_id=c.id ORDER BY b.id DESC"))
+    return render_template('batches.html',batches=q("SELECT b.*,c.course_name,(SELECT COUNT(*) FROM students WHERE batch_id=b.id) as strength FROM batches b JOIN courses c ON b.course_id=c.id ORDER BY b.id DESC"),courses=q("SELECT * FROM courses WHERE is_active=1 ORDER BY course_name"))
 
 @app.route('/batches/get/<int:course_id>')
 @login_required
@@ -621,7 +621,7 @@ def attendance():
 @app.route('/exams')
 @login_required
 def exams():
-    return render_template('exams.html',exams=q("SELECT e.*,c.course_name,(SELECT COUNT(*) FROM exam_results WHERE exam_id=e.id) as results_entered FROM exams e JOIN courses c ON e.course_id=c.id ORDER BY e.exam_date DESC"))
+    return render_template('exams.html',exams=q("SELECT e.*,c.course_name,(SELECT COUNT(*) FROM exam_results WHERE exam_id=e.id) as results_entered FROM exams e JOIN courses c ON e.course_id=c.id ORDER BY e.exam_date DESC"),courses=q("SELECT * FROM courses WHERE is_active=1 ORDER BY course_name"))
 
 @app.route('/exams/add',methods=['POST'])
 @login_required

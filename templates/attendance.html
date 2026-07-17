@@ -20,9 +20,9 @@
       <tbody>{% for s in students %}<tr>
         <td>{{ s.student_id }}</td>
         <td>{{ s.full_name }}</td>
-        <td><input type="radio" name="status_s['id']" value="present" {% if s['att_status']=='present' %}checked{% endif %}></td>
-        <td><input type="radio" name="status_s['id']" value="absent" {% if not s['att_status'] or s['att_status']=='absent' %}checked{% endif %}></td>
-        <td><input type="radio" name="status_s['id']" value="late" {% if s['att_status']=='late' %}checked{% endif %}></td>
+        <td><input type="radio" name="status_{{ s.id }}" value="present" {% if s['att_status']=='present' %}checked{% endif %}></td>
+        <td><input type="radio" name="status_{{ s.id }}" value="absent" {% if not s['att_status'] or s['att_status']=='absent' %}checked{% endif %}></td>
+        <td><input type="radio" name="status_{{ s.id }}" value="late" {% if s['att_status']=='late' %}checked{% endif %}></td>
       </tr>{% endfor %}</tbody>
     </table></div>
     <button type="submit" class="btn btn-success" style="margin-top:12px">&#128194; Save Attendance</button>
