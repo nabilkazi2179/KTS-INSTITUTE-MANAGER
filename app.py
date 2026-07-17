@@ -357,7 +357,7 @@ def login():
         flash('Invalid credentials.','danger')
     return render_template('login.html')
 
-@app.route('/logout')
+@app.route('/logout', methods=['GET','POST'])
 def logout():
     log(session.get('user_id'),'logout','users',session.get('user_id'))
     session.clear(); flash('Logged out.','info'); return redirect(url_for('login'))
@@ -422,9 +422,8 @@ def add_student():
                 f.save(os.path.join(UPLOAD,'id_proofs',secure_filename(ip)))
         suid=None
         em=request.form.get('email','').strip()
-        if em:
-            suid=ex("INSERT INTO users (username,password_hash,full_name,email,phone,role) VALUES (?,?,?,?,?,?)",
-                (sid,generate_password_hash('kts123'),fn,em,request.form.get('mobile',''),'student'))
+        suid=ex("INSERT INTO users (username,password_hash,full_name,email,phone,role) VALUES (?,?,?,?,?,?)",
+            (sid,generate_password_hash('kts123'),fn,em,request.form.get('mobile',''),'student'))
         iid=ex("INSERT INTO students (student_id,full_name,guardian_name,dob,gender,mobile,whatsapp,email,address,city,state,country,id_number,qualification,photo,id_proof,joining_date,course_id,batch_id,counselor_id,remarks,user_id,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (sid,fn,request.form.get('guardian_name',''),request.form.get('dob',''),request.form.get('gender',''),
              request.form.get('mobile',''),request.form.get('whatsapp',''),em,
