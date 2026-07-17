@@ -274,6 +274,9 @@ def init_db():
         _run("SELECT id FROM courses WHERE course_code=?", (c[0],))
         if not cur2.fetchone():
             _run("INSERT INTO courses (course_code,course_name,duration,fees,description) VALUES (?,?,?,?,?)", c)
+    # Backfill created_at for any existing students missing it (report grouping fix)
+    now = datetime.now().isoformat()
+    _run("UPDATE students SET created_at=COALESCE(joining_date,?) WHERE created_at IS NULL OR created_at=''", (now,))
     db.commit()
     db.close()
 
