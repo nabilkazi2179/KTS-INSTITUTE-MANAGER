@@ -13,19 +13,27 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import threading
 
 # ── Telegram Config ──────────────────────────────────────────
-TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '')
-TELEGRAM_API = f'https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}' if TELEGRAM_BOT_TOKEN else ''
-
-if not TELEGRAM_BOT_TOKEN:
+def _load_telegram_token():
+    tok = os.environ.get('TELEGRAM_BOT_TOKEN', '').strip()
+    if tok: return tok
+    # fallback 1: local hermes .env (dev)
     hermes_env = os.path.join(os.path.expanduser('~'), 'AppData', 'Local', 'hermes', '.env')
     if os.path.exists(hermes_env):
         with open(hermes_env) as f:
             for line in f:
                 line = line.strip()
                 if line.startswith('TELEGRAM_BOT_TOKEN='):
-                    TELEGRAM_BOT_TOKEN = line.split('=', 1)[1].strip()
-                    TELEGRAM_API = f'https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}'
-                    break
+                    return line.split('=', 1)[1].strip()
+    # fallback 2: settings table (works on Vercel without dashboard env vars)
+    try:
+        from_db = get_setting('TELEGRAM_BOT_TOKEN', '')
+        if from_db: return from_db
+    except Exception:
+        pass
+    return ''
+
+TELEGRAM_BOT_TOKEN = _load_telegram_token()
+TELEGRAM_API = f'https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}' if TELEGRAM_BOT_TOKEN else ''
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
@@ -109,6 +117,22 @@ def ex(query, args=()):
         return cur.lastrowid
     finally:
         db.close()
+
+def get_setting(key, default=''):
+    try:
+        r = q("SELECT value FROM settings WHERE key=?", (key,), one=True)
+        return r['value'] if r else default
+    except Exception:
+        return default
+
+def set_setting(key, value):
+    try:
+        ex("INSERT INTO settings (key,value,updated_at) VALUES (?,?,?) ON CONFLICT(key) DO UPDATE SET value=?,updated_at=?",
+           (key, value, datetime.now().isoformat(), value, datetime.now().isoformat()))
+        return True
+    except Exception as e:
+        print(f"set_setting error: {e}")
+        return False
 
 UPLOAD = os.path.join(BASE_DIR, 'static', 'uploads')
 app = Flask(__name__, template_folder=os.path.join(BASE_DIR, 'templates'))
@@ -214,6 +238,9 @@ def init_db():
         recipient_type TEXT, type TEXT, subject TEXT, message TEXT,
         channel TEXT DEFAULT 'system', is_sent INTEGER DEFAULT 0,
         sent_at TEXT, created_at TEXT)''')
+    # Settings (key/value store, e.g. secrets that can't go in code)
+    cur.execute(f'''CREATE TABLE IF NOT EXISTS settings (
+        key TEXT PRIMARY KEY, value TEXT, updated_at TEXT)''')
     # Ensure optional columns exist (safe on re-runs / existing DBs)
     def _add_col(tbl, col, typ):
         try: cur.execute(f'ALTER TABLE {tbl} ADD COLUMN {col} {typ}')
