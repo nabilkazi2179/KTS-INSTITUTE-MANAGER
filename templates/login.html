@@ -23,6 +23,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:linear-gradient(135d
     {% for cat,msg in msgs %}<div class="alert alert-{{cat}}">{{msg}}</div>{% endfor %}
   {% endif %}{% endwith %}
   <form method="POST">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
     <div class="fg"><label>Username</label><input type="text" name="username" required placeholder="Enter username" autofocus></div>
     <div class="fg"><label>Password</label><input type="password" name="password" required placeholder="Enter password"></div>
     <button type="submit" class="btn">Sign In</button>

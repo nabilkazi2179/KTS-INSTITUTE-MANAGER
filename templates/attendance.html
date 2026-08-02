@@ -13,6 +13,7 @@
   </form>
   {% if students %}
   <form method="POST">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="batch_id" value="{{selected_batch}}">
     <input type="hidden" name="date" value="{{date}}">
     <div class="table-wrap"><table>

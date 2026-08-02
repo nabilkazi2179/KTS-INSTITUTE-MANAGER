@@ -6,6 +6,7 @@
     <h2 style="font-size:1.2rem;margin-bottom:6px">&#128269; Certificate Verification</h2>
     <p style="color:var(--m);font-size:.85rem;margin-bottom:20px">Enter Certificate Number or Student ID</p>
     <form method="POST">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
       <input type="text" name="search_term" placeholder="e.g. KTS-CERT-2026-00001" required style="width:100%;padding:10px 14px;border:1px solid var(--brd);border-radius:8px;font-size:.9rem;margin-bottom:12px;text-align:center">
       <button type="submit" class="btn btn-primary" style="width:100%">Verify</button>
     </form>

@@ -4,6 +4,7 @@
 <div class="card">
   <div class="card-title">&#127891; New Student Admission</div>
   <form method="POST" enctype="multipart/form-data">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
     <h3 style="font-size:.9rem;color:var(--p);margin-bottom:12px;border-bottom:1px solid var(--brd);padding-bottom:6px">Personal Details</h3>
     <div class="form-grid">
       <div class="fg"><label>Full Name *</label><input type="text" name="full_name" required></div>

@@ -4,6 +4,7 @@
 <div class="card">
   <div class="card-title">&#127942; Certificates</div>
   <form method="POST" action="{{url_for('generate_certificate')}}" style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
     <select name="student_id" required style="padding:7px;border:1px solid var(--brd);border-radius:7px;font-size:.85rem;flex:1;min-width:200px">
       <option value="">Select Student</option>
       {% for s in students %}<option value="{{ s.id }}">{{ s.full_name }} ({{ s.student_id }}) - {{ s.course_name }}</option>{% endfor %}

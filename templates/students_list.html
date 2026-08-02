@@ -30,5 +30,23 @@
       {% if not students %}<tr><td colspan="6" style="text-align:center;color:var(--m);padding:20px">No students found</td></tr>{% endif %}
     </tbody>
   </table></div>
+  {% if pages and pages > 1 %}
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;flex-wrap:wrap;gap:8px">
+    <div style="font-size:.82rem;color:var(--m)">
+      Page {{ page }} of {{ pages }} &middot; {{ total }} student{{ '' if total == 1 else 's' }}
+    </div>
+    <div style="display:flex;gap:6px">
+      {% set args = request.args.to_dict() %}
+      {% if page > 1 %}
+        {% set _ = args.update({'page': page - 1}) %}
+        <a href="{{ url_for('students_list', **args) }}" class="btn btn-sm btn-outline">&laquo; Prev</a>
+      {% endif %}
+      {% if page < pages %}
+        {% set _ = args.update({'page': page + 1}) %}
+        <a href="{{ url_for('students_list', **args) }}" class="btn btn-sm btn-outline">Next &raquo;</a>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
 </div>
 {% endblock %}

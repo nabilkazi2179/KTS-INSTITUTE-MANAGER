@@ -4,6 +4,7 @@
 <div class="card">
   <div class="card-title">&#9998; Edit Student - {{ student.student_id }}</div>
   <form method="POST">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
     <div class="form-grid">
       <div class="fg"><label>Full Name</label><input type="text" name="full_name" value="{{ student.full_name }}" required></div>
       <div class="fg"><label>Guardian Name</label><input type="text" name="guardian_name" value="{{ student.guardian_name or '' }}"></div>

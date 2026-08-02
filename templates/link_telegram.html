@@ -14,12 +14,14 @@
         <p style="font-size:.82rem;color:#065f46">Chat ID: {{ user.telegram_id }}</p>
       </div>
       <form method="POST">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
         <input type="hidden" name="action" value="unlink">
         <button class="btn btn-danger">Unlink Telegram</button>
       </form>
     {% else %}
       <h4 style="margin-bottom:10px;font-size:.9rem">Step 1 — Generate a code</h4>
       <form method="POST" style="margin-bottom:18px">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
         <input type="hidden" name="action" value="generate">
         <button class="btn btn-primary">Generate Link Code</button>
       </form>
@@ -36,6 +38,7 @@
         </p>
         <h4 style="margin-bottom:10px;font-size:.9rem">Step 3 — Confirm</h4>
         <form method="POST">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
           <input type="hidden" name="action" value="confirm">
           <div class="fg" style="margin-bottom:12px">
             <label>Paste the chat ID the bot sent you</label>

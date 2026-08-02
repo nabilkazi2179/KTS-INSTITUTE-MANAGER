@@ -7,6 +7,7 @@
   </div>
   <div id="addForm" style="display:none;margin-bottom:16px;padding:16px;background:var(--bg);border-radius:8px">
     <form method="POST" action="{{url_for('add_batch')}}" style="display:flex;gap:8px;flex-wrap:wrap">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
       <input type="text" name="batch_name" placeholder="Batch Name" required style="padding:7px;border:1px solid var(--brd);border-radius:7px;font-size:.85rem;flex:1;min-width:120px">
       <select name="course_id" required style="padding:7px;border:1px solid var(--brd);border-radius:7px;font-size:.85rem">
         <option value="">Course</option>
