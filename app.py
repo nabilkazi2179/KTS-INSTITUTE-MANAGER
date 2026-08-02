@@ -3,11 +3,12 @@ KTS Institute Management System - Konkan Technology Services
 Complete Student Lifecycle Management Application
 """
 import os, uuid, json, io, csv, urllib.request, urllib.parse, sqlite3, re
-import hmac, secrets, logging, threading, time
+import hmac, secrets, logging, threading, time, base64, mimetypes
 from datetime import datetime, date, timedelta
 from functools import wraps
 from flask import (Flask, render_template, request, redirect, url_for,
-    flash, session, jsonify, send_file, abort, g as flask_g)
+    flash, session, jsonify, send_file, abort, make_response,
+    send_from_directory, g as flask_g)
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -100,12 +101,24 @@ if DATABASE_URL and DATABASE_URL not in ('sqlite', ''):
         from psycopg2.extras import RealDictCursor
         DB_MODE = 'postgres'
     except ImportError:
+        if IS_SERVERLESS or ENV == 'production':
+            raise RuntimeError(
+                'DATABASE_URL is set but psycopg2 is not installed, so the app '
+                'would silently fall back to a temporary SQLite database and lose '
+                'all data. Add "psycopg2-binary" to requirements.txt and redeploy.')
         DB_PATH = _pick_sqlite_path()
         logger.warning('psycopg2 not installed - falling back to SQLite at %s', DB_PATH)
 else:
     DB_PATH = _pick_sqlite_path()
 
 if DB_MODE == 'sqlite':
+    if IS_SERVERLESS and ENV == 'production':
+        raise RuntimeError(
+            'DATABASE_URL is required when deploying to Vercel/Lambda in production. '
+            'The serverless filesystem is wiped between requests, so SQLite would '
+            'silently lose every student, payment and certificate. '
+            'Create a free Postgres database (Neon, Supabase or Vercel Postgres) and '
+            'set DATABASE_URL in your Vercel project settings.')
     if DB_PATH == ':memory:':
         logger.warning('SQLite is in-memory - ALL DATA IS LOST when the process stops.')
     elif DB_PATH.startswith('/tmp'):
@@ -189,6 +202,28 @@ def set_setting(key, value):
         return False
 
 UPLOAD = os.environ.get('UPLOAD_FOLDER') or os.path.join(BASE_DIR, 'static', 'uploads')
+
+MAX_UPLOAD_BYTES = int(os.environ.get('MAX_UPLOAD_MB', '16')) * 1024 * 1024
+
+# On serverless the disk is wiped between requests, so uploaded photos and
+# ID proofs must live in the database instead. Can be forced either way with
+# UPLOAD_STORAGE=db|disk.
+_upload_storage = os.environ.get('UPLOAD_STORAGE', '').strip().lower()
+if _upload_storage == 'db':
+    USE_DB_UPLOADS = True
+elif _upload_storage == 'disk':
+    USE_DB_UPLOADS = False
+else:
+    USE_DB_UPLOADS = IS_SERVERLESS
+
+# Same reasoning for rate limiting: serverless instances don't share memory.
+_rl_storage = os.environ.get('RATE_LIMIT_STORAGE', '').strip().lower()
+if _rl_storage == 'db':
+    USE_DB_RATE_LIMIT = True
+elif _rl_storage == 'memory':
+    USE_DB_RATE_LIMIT = False
+else:
+    USE_DB_RATE_LIMIT = IS_SERVERLESS
 app = Flask(__name__, template_folder=os.path.join(BASE_DIR, 'templates'))
 
 # ── Secret key ───────────────────────────────────────────────
@@ -214,12 +249,13 @@ app.config.update(
 )
 
 # Create upload directories up front - photo/id_proof saves used to crash
-# because these paths never existed.
-for _sub in ('photos', 'id_proofs'):
-    try:
-        os.makedirs(os.path.join(UPLOAD, _sub), exist_ok=True)
-    except OSError as e:
-        logger.warning('Could not create upload dir %s: %s', _sub, e)
+# because these paths never existed. Skipped when files live in the DB.
+if not USE_DB_UPLOADS:
+    for _sub in ('photos', 'id_proofs'):
+        try:
+            os.makedirs(os.path.join(UPLOAD, _sub), exist_ok=True)
+        except OSError as e:
+            logger.warning('Could not create upload dir %s: %s', _sub, e)
 
 ALLOWED = {'png', 'jpg', 'jpeg', 'gif', 'pdf', 'doc', 'docx'}
 ALLOWED_IMAGE = {'png', 'jpg', 'jpeg', 'gif'}
@@ -256,9 +292,29 @@ def csrf_protect():
         abort(400, description='CSRF token missing or invalid. Please reload the page and try again.')
     return None
 
-# ── Rate limiting (in-process, sliding window) ───────────────
+# ── Rate limiting ────────────────────────────────────────────
+# In-process buckets are fine on a single server, but on serverless every
+# request may land on a fresh instance with empty memory - which would make
+# brute-force protection useless. There we persist attempts in the database.
 _rate_buckets = {}
 _rate_lock = threading.Lock()
+
+def _db_rate_check(bucket_key, max_attempts, window_seconds):
+    """Shared-state rate limit. Returns retry-after seconds, or 0 if allowed."""
+    now = time.time()
+    cutoff = now - window_seconds
+    try:
+        ex("DELETE FROM rate_limits WHERE ts < ?", (cutoff,))
+        rows = q("SELECT ts FROM rate_limits WHERE bucket=? AND ts >= ? ORDER BY ts",
+                 (bucket_key, cutoff))
+        if len(rows) >= max_attempts:
+            return int(window_seconds - (now - float(rows[0]['ts']))) + 1
+        ex("INSERT INTO rate_limits (bucket, ts) VALUES (?,?)", (bucket_key, now))
+        return 0
+    except Exception as e:
+        # Never lock everyone out because the limiter itself broke.
+        logger.error('Rate limit check failed for %s: %s', bucket_key, e)
+        return 0
 
 def rate_limit(max_attempts, window_seconds, key_func=None):
     """Reject requests once an IP exceeds max_attempts within the window."""
@@ -270,6 +326,18 @@ def rate_limit(max_attempts, window_seconds, key_func=None):
             ident = key_func() if key_func else (request.remote_addr or 'anon')
             bucket_key = f'{f.__name__}:{ident}'
             now = time.time()
+
+            if USE_DB_RATE_LIMIT:
+                retry = _db_rate_check(bucket_key, max_attempts, window_seconds)
+                if retry:
+                    logger.warning('Rate limit hit on %s by %s', f.__name__, ident)
+                    if request.is_json:
+                        return jsonify({'ok': False, 'error': 'too many requests',
+                                        'retry_after': retry}), 429
+                    flash(f'Too many attempts. Please wait {retry} seconds and try again.', 'danger')
+                    return redirect(request.path)
+                return f(*a, **k)
+
             with _rate_lock:
                 hits = [t for t in _rate_buckets.get(bucket_key, []) if now - t < window_seconds]
                 if len(hits) >= max_attempts:
@@ -406,6 +474,16 @@ def init_db():
     # Settings (key/value store, e.g. secrets that can't go in code)
     cur.execute(f'''CREATE TABLE IF NOT EXISTS settings (
         key TEXT PRIMARY KEY, value TEXT, updated_at TEXT)''')
+    # Uploaded files, base64-encoded. Used when the filesystem is not durable
+    # (Vercel/Lambda), so student photos and ID proofs survive.
+    cur.execute(f'''CREATE TABLE IF NOT EXISTS uploads (
+        id {AID}, file_key TEXT UNIQUE, filename TEXT, subdir TEXT,
+        mime_type TEXT, data TEXT, created_at TEXT)''')
+    # Rate-limit attempts, shared across serverless instances.
+    cur.execute(f'''CREATE TABLE IF NOT EXISTS rate_limits (
+        id {AID}, bucket TEXT, ts DOUBLE PRECISION)''' if DB_MODE == 'postgres'
+        else '''CREATE TABLE IF NOT EXISTS rate_limits (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, bucket TEXT, ts REAL)''')
     # Ensure optional columns exist (safe on re-runs / existing DBs)
     def _add_col(tbl, col, typ):
         try: cur.execute(f'ALTER TABLE {tbl} ADD COLUMN {col} {typ}')
@@ -420,6 +498,8 @@ def init_db():
     # Indexes for the columns we filter/join on most (big win once data grows)
     for idx in (
         'CREATE INDEX IF NOT EXISTS idx_students_course ON students(course_id)',
+        'CREATE INDEX IF NOT EXISTS idx_ratelimit_bucket ON rate_limits(bucket, ts)',
+        'CREATE INDEX IF NOT EXISTS idx_uploads_key ON uploads(file_key)',
         'CREATE INDEX IF NOT EXISTS idx_students_batch ON students(batch_id)',
         'CREATE INDEX IF NOT EXISTS idx_students_status ON students(status)',
         'CREATE INDEX IF NOT EXISTS idx_students_user ON students(user_id)',
@@ -514,6 +594,9 @@ def valid_email(e):
 def save_upload(file_storage, subdir, base_name, allowed=None):
     """Save an uploaded file safely. Returns the stored filename, or '' on skip.
 
+    On serverless hosts (Vercel/Lambda) the filesystem is wiped between
+    requests, so files are stored in the database instead of on disk.
+
     The original code built the filename first and only passed it through
     secure_filename() afterwards, so the extension was never really validated.
     """
@@ -525,6 +608,27 @@ def save_upload(file_storage, subdir, base_name, allowed=None):
     ext = original.rsplit('.', 1)[1].lower()
     safe_base = secure_filename(base_name) or uuid.uuid4().hex[:12]
     filename = f'{safe_base}.{ext}'
+
+    if USE_DB_UPLOADS:
+        try:
+            data = file_storage.read()
+            if not data:
+                return ''
+            if len(data) > MAX_UPLOAD_BYTES:
+                logger.warning('Upload %s exceeds size cap', filename)
+                return ''
+            mime = mimetypes.guess_type(filename)[0] or 'application/octet-stream'
+            key = f'{subdir}/{filename}'
+            payload = base64.b64encode(data).decode('ascii')
+            ex("DELETE FROM uploads WHERE file_key=?", (key,))
+            ex("INSERT INTO uploads (file_key,filename,subdir,mime_type,data,created_at)"
+               " VALUES (?,?,?,?,?,?)",
+               (key, filename, subdir, mime, payload, datetime.now().isoformat()))
+            return filename
+        except Exception as e:
+            logger.error('DB upload failed for %s: %s', filename, e)
+            return ''
+
     target_dir = os.path.join(UPLOAD, subdir)
     try:
         os.makedirs(target_dir, exist_ok=True)
@@ -538,6 +642,7 @@ def save_upload(file_storage, subdir, base_name, allowed=None):
     except OSError as e:
         logger.error('Upload save failed for %s: %s', filename, e)
         return ''
+
 
 def gen_student_id(code):
     y = datetime.now().year
@@ -601,6 +706,40 @@ def staff_required(f):
                             else url_for('login'))
         return f(*a, **k)
     return d
+
+@app.route('/uploads/<path:subdir>/<path:filename>')
+@login_required
+def serve_upload(subdir, filename):
+    """Serve an uploaded file from the database or disk.
+
+    Login-gated: student photos and ID proofs are personal data and must not
+    be readable by anonymous visitors.
+    """
+    if subdir not in ('photos', 'id_proofs'):
+        abort(404)
+    safe_name = secure_filename(filename)
+    if not safe_name:
+        abort(404)
+
+    if USE_DB_UPLOADS:
+        row = q("SELECT data, mime_type FROM uploads WHERE file_key=?",
+                (f'{subdir}/{safe_name}',), one=True)
+        if not row:
+            abort(404)
+        try:
+            blob = base64.b64decode(row['data'])
+        except Exception:
+            abort(404)
+        resp = make_response(blob)
+        resp.headers['Content-Type'] = row['mime_type'] or 'application/octet-stream'
+        resp.headers['Cache-Control'] = 'private, max-age=3600'
+        resp.headers['Content-Disposition'] = f'inline; filename="{safe_name}"'
+        return resp
+
+    directory = os.path.abspath(os.path.join(UPLOAD, subdir))
+    if not os.path.isfile(os.path.join(directory, safe_name)):
+        abort(404)
+    return send_from_directory(directory, safe_name)
 
 @app.context_processor
 def g():
@@ -1470,6 +1609,8 @@ def health_detail():
             'persistent': not ephemeral,
             'ephemeral_storage': ephemeral,
             'serverless': IS_SERVERLESS,
+            'upload_storage': 'database' if USE_DB_UPLOADS else 'disk',
+            'rate_limit_storage': 'database' if USE_DB_RATE_LIMIT else 'memory',
             'env': ENV,
         })
     except Exception as e:

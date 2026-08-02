@@ -12,7 +12,7 @@
   <div>
     <div class="card" style="text-align:center">
       {% if student['photo'] %}
-      <img src="/static/uploads/photos/{{ student.photo }}" style="width:120px;height:120px;border-radius:50%;object-fit:cover;border:3px solid var(--p)">
+      <img src="{{ url_for('serve_upload', subdir='photos', filename=student.photo) }}" style="width:120px;height:120px;border-radius:50%;object-fit:cover;border:3px solid var(--p)">
       {% endif %}
       {% if not student['photo'] %}
       <div style="width:120px;height:120px;border-radius:50%;background:var(--p);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:2.5rem;font-weight:700">{{ student.full_name }}[0]</div>

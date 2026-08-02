@@ -516,3 +516,112 @@ def test_backup_script_produces_valid_copy(client, tmp_path):
     finally:
         con.close()
 
+
+# ── Serverless / Vercel behaviour ────────────────────────────
+PNG_1PX = bytes.fromhex(
+    '89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c489'
+    '0000000a49444154789c6360000002000100ffff03000006000557bfabd4000000'
+    '0049454e44ae426082')
+
+
+def _png_upload(name='face.png'):
+    import io as _io
+    from werkzeug.datastructures import FileStorage
+    return FileStorage(stream=_io.BytesIO(PNG_1PX), filename=name)
+
+
+def test_upload_stored_in_database_when_serverless(client, monkeypatch):
+    monkeypatch.setattr(kts, 'USE_DB_UPLOADS', True)
+    name = kts.save_upload(_png_upload(), 'photos', 's1_photo', kts.ALLOWED_IMAGE)
+    assert name == 's1_photo.png'
+    row = kts.q("SELECT mime_type, data FROM uploads WHERE file_key=?",
+                ('photos/s1_photo.png',), one=True)
+    assert row is not None
+    assert row['mime_type'] == 'image/png'
+    import base64
+    assert base64.b64decode(row['data']) == PNG_1PX
+
+
+def test_serve_upload_returns_exact_bytes(client, monkeypatch):
+    monkeypatch.setattr(kts, 'USE_DB_UPLOADS', True)
+    name = kts.save_upload(_png_upload(), 'photos', 's2_photo', kts.ALLOWED_IMAGE)
+    login(client)
+    r = client.get(f'/uploads/photos/{name}')
+    assert r.status_code == 200
+    assert r.headers['Content-Type'] == 'image/png'
+    assert r.data == PNG_1PX
+
+
+def test_serve_upload_requires_login(client, monkeypatch):
+    """Student photos and ID proofs must not be public."""
+    monkeypatch.setattr(kts, 'USE_DB_UPLOADS', True)
+    name = kts.save_upload(_png_upload(), 'photos', 's3_photo', kts.ALLOWED_IMAGE)
+    r = client.get(f'/uploads/photos/{name}')
+    assert r.status_code in (302, 401)
+
+
+def test_serve_upload_rejects_bad_subdir(client):
+    login(client)
+    assert client.get('/uploads/evil/x.png').status_code == 404
+
+
+def test_serve_upload_missing_file_404s(client, monkeypatch):
+    monkeypatch.setattr(kts, 'USE_DB_UPLOADS', True)
+    login(client)
+    assert client.get('/uploads/photos/nope.png').status_code == 404
+
+
+def test_db_rate_limit_survives_memory_wipe(client, monkeypatch):
+    """On Vercel each request may hit a fresh instance with empty memory.
+    The DB-backed limiter must still enforce the cap."""
+    monkeypatch.setattr(kts, 'USE_DB_RATE_LIMIT', True)
+    kts.ex("DELETE FROM rate_limits")
+    blocked = 0
+    for _ in range(14):
+        kts._rate_buckets.clear()          # simulate a cold instance
+        c = kts.app.test_client()
+        c.get('/login')
+        with c.session_transaction() as sess:
+            t = sess.get('_csrf_token')
+        r = c.post('/login', data={'username': 'admin', 'password': 'wrong',
+                                   '_csrf_token': t}, follow_redirects=True)
+        if b'Too many attempts' in r.data:
+            blocked += 1
+    recorded = kts.q("SELECT COUNT(*) as c FROM rate_limits")[0]['c']
+    limit = int(os.environ.get('LOGIN_RATE_LIMIT', '10'))
+    assert recorded <= limit, f'limiter recorded {recorded} attempts, cap is {limit}'
+    assert blocked > 0, 'limiter never engaged across simulated cold starts'
+
+
+def test_db_rate_limit_prunes_expired(client, monkeypatch):
+    monkeypatch.setattr(kts, 'USE_DB_RATE_LIMIT', True)
+    kts.ex("DELETE FROM rate_limits")
+    kts.ex("INSERT INTO rate_limits (bucket, ts) VALUES (?,?)", ('old:1', 1.0))
+    assert kts._db_rate_check('fresh:1', 5, 300) == 0
+    assert kts.q("SELECT COUNT(*) as c FROM rate_limits WHERE bucket='old:1'")[0]['c'] == 0
+
+
+def test_rate_limiter_fails_open_not_closed(client, monkeypatch):
+    """A broken limiter must not lock every user out."""
+    monkeypatch.setattr(kts, 'USE_DB_RATE_LIMIT', True)
+
+    def boom(*a, **k):
+        raise RuntimeError('db down')
+
+    monkeypatch.setattr(kts, 'ex', boom)
+    assert kts._db_rate_check('any:1', 1, 60) == 0
+
+
+def test_serverless_flags_default_to_disk_locally():
+    assert kts.IS_SERVERLESS is False
+    assert kts.USE_DB_UPLOADS is False
+    assert kts.USE_DB_RATE_LIMIT is False
+
+
+def test_health_detail_reports_storage_modes(client):
+    login(client)
+    body = client.get('/health/detail').get_json()
+    assert body['upload_storage'] in ('disk', 'database')
+    assert body['rate_limit_storage'] in ('memory', 'database')
+
+

@@ -75,6 +75,25 @@ gunicorn --bind 0.0.0.0:8000 --workers 4 --timeout 60 app:app
 
 ---
 
+## Deploying to Vercel
+
+**See [DEPLOY-VERCEL.md](DEPLOY-VERCEL.md) for the full step-by-step guide.**
+
+Short version — set these in Vercel → Settings → Environment Variables, then deploy:
+
+| Variable | Value |
+|---|---|
+| `DATABASE_URL` | a Postgres connection string (Vercel Postgres / Neon / Supabase — free tiers work) |
+| `SECRET_KEY` | `python -c "import secrets; print(secrets.token_hex(32))"` |
+| `ADMIN_PASSWORD` | your first-login password |
+| `FLASK_ENV` | `production` |
+
+**`DATABASE_URL` is mandatory on Vercel.** The serverless filesystem is wiped between requests, so without Postgres every student, payment and certificate would silently disappear. The app now refuses to boot rather than let that happen.
+
+In serverless mode the app automatically stores uploads and rate-limit state in the database instead of on disk. Verify after deploying by visiting `/health` — it should report `"db": "postgres"`.
+
+---
+
 ## 🔴 Storage warning — serverless hosts only
 
 **This section applies only to Vercel / AWS Lambda.** If you run on your own PC, an office server, or Docker, skip it — see [Running on one computer](#running-on-one-computer-no-cloud-database) below.
