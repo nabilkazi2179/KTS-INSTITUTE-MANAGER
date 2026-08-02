@@ -423,3 +423,96 @@ def test_file_upload_sanitises_traversal_filename():
 
 def test_certificate_verification_is_public(client):
     assert client.get('/verify').status_code == 200
+
+
+# ── Local SQLite persistence ─────────────────────────────────
+def test_sqlite_uses_project_dir_not_tmp():
+    """Regression: /tmp was preferred over the project dir, so on Linux the
+    database landed in /tmp and was wiped on reboot."""
+    path = kts._pick_sqlite_path()
+    assert not path.startswith('/tmp')
+    assert path != ':memory:'
+    assert os.path.abspath(kts.BASE_DIR) in os.path.abspath(path)
+
+
+def test_sqlite_path_env_override(monkeypatch, tmp_path):
+    target = tmp_path / 'nested' / 'custom.db'
+    monkeypatch.setenv('SQLITE_PATH', str(target))
+    assert kts._pick_sqlite_path() == os.path.abspath(str(target))
+    assert os.path.isdir(os.path.dirname(str(target))), 'parent dir auto-created'
+
+
+def test_serverless_falls_back_to_tmp(monkeypatch):
+    monkeypatch.setenv('VERCEL', '1')
+    monkeypatch.delenv('SQLITE_PATH', raising=False)
+    monkeypatch.setattr(kts, 'IS_SERVERLESS', True)
+    path = kts._pick_sqlite_path()
+    assert path.startswith('/tmp') or path == ':memory:'
+
+
+def test_wal_and_pragmas_enabled(client):
+    db = kts.get_db()
+    try:
+        assert db.execute('PRAGMA journal_mode').fetchone()[0].lower() == 'wal'
+        assert db.execute('PRAGMA foreign_keys').fetchone()[0] == 1
+        assert db.execute('PRAGMA busy_timeout').fetchone()[0] == 15000
+    finally:
+        db.close()
+
+
+def test_concurrent_writes_do_not_lock(client):
+    """WAL + busy_timeout must prevent 'database is locked' under load."""
+    import threading
+    errors = []
+
+    def writer(n):
+        try:
+            for i in range(10):
+                kts.ex("INSERT INTO audit_logs (user_id,action,table_name,record_id,details)"
+                       " VALUES (?,?,?,?,?)", (n, 'concurrent', 't', i, f'{n}-{i}'))
+        except Exception as e:
+            errors.append(repr(e))
+
+    threads = [threading.Thread(target=writer, args=(i,)) for i in range(5)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert errors == []
+    assert kts.q("SELECT COUNT(*) as c FROM audit_logs WHERE action='concurrent'")[0]['c'] == 50
+
+
+def test_data_survives_reconnect(client):
+    """Writes must land on disk, not just in a per-connection buffer."""
+    kts.ex("INSERT INTO courses (course_code,course_name,fees) VALUES (?,?,?)",
+           ('PERSIST', 'Persistence Check', 4200))
+    kts._db_initialized = False          # force a brand-new connection
+    row = kts.q("SELECT course_name,fees FROM courses WHERE course_code='PERSIST'", one=True)
+    assert row is not None
+    assert row['fees'] == 4200
+
+
+def test_health_detail_reports_persistence(client):
+    login(client)
+    body = client.get('/health/detail').get_json()
+    assert body['persistent'] is True
+    assert body['ephemeral_storage'] is False
+    assert body['db_path'].endswith('.db')
+
+
+def test_backup_script_produces_valid_copy(client, tmp_path):
+    import backup_db
+    kts.ex("INSERT INTO courses (course_code,course_name,fees) VALUES (?,?,?)",
+           ('BKP', 'Backup Check', 111))
+    dest = tmp_path / 'backups'
+    assert backup_db.backup(kts.DB_PATH, str(dest), keep=5) == 0
+    copies = list(dest.glob('kts_*.db'))
+    assert len(copies) == 1
+    import sqlite3 as s3
+    con = s3.connect(str(copies[0]))
+    try:
+        assert con.execute(
+            "SELECT fees FROM courses WHERE course_code='BKP'").fetchone()[0] == 111
+    finally:
+        con.close()
+

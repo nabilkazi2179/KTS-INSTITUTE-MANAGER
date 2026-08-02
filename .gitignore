@@ -3,6 +3,10 @@ __pycache__/
 *.pyo
 kts_institute.db
 *.db
+*.db-wal
+*.db-shm
+backups/
+persist_test/
 *.sqlite3
 .env
 .env.local

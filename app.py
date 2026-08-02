@@ -70,7 +70,29 @@ DATABASE_URL = (os.environ.get('DATABASE_URL', '')
 DB_MODE = 'sqlite'
 DB_PATH = ':memory:'
 _last_rowcount = 0
-# Vercel deployment trigger
+
+# Serverless platforms give you a read-only filesystem except for /tmp,
+# which is wiped between invocations. Everywhere else (your own PC, a VPS,
+# Docker) we want a real file that survives restarts.
+IS_SERVERLESS = bool(os.environ.get('VERCEL') or os.environ.get('AWS_LAMBDA_FUNCTION_NAME'))
+
+def _pick_sqlite_path():
+    # 1. Explicit override always wins.
+    explicit = os.environ.get('SQLITE_PATH', '').strip()
+    if explicit:
+        parent = os.path.dirname(os.path.abspath(explicit)) or '.'
+        try:
+            os.makedirs(parent, exist_ok=True)
+        except OSError:
+            pass
+        return os.path.abspath(explicit)
+    # 2. On a normal machine, keep the DB next to the app so it persists.
+    if not IS_SERVERLESS and os.path.isdir(BASE_DIR) and os.access(BASE_DIR, os.W_OK):
+        return os.path.join(BASE_DIR, 'kts_institute.db')
+    # 3. Serverless / read-only project dir: /tmp is all we get (EPHEMERAL).
+    if os.path.isdir('/tmp') and os.access('/tmp', os.W_OK):
+        return '/tmp/kts_institute.db'
+    return ':memory:'
 
 if DATABASE_URL and DATABASE_URL not in ('sqlite', ''):
     try:
@@ -78,15 +100,19 @@ if DATABASE_URL and DATABASE_URL not in ('sqlite', ''):
         from psycopg2.extras import RealDictCursor
         DB_MODE = 'postgres'
     except ImportError:
-        DB_PATH = '/tmp/kts_institute.db'
-        print(f'WARNING: psycopg2 not installed, using SQLite: {DB_PATH}')
+        DB_PATH = _pick_sqlite_path()
+        logger.warning('psycopg2 not installed - falling back to SQLite at %s', DB_PATH)
 else:
-    if os.access('/tmp', os.W_OK):
-        DB_PATH = '/tmp/kts_institute.db'
-    elif os.path.isdir(BASE_DIR) and os.access(BASE_DIR, os.W_OK):
-        DB_PATH = os.path.join(BASE_DIR, 'kts_institute.db')
+    DB_PATH = _pick_sqlite_path()
+
+if DB_MODE == 'sqlite':
+    if DB_PATH == ':memory:':
+        logger.warning('SQLite is in-memory - ALL DATA IS LOST when the process stops.')
+    elif DB_PATH.startswith('/tmp'):
+        logger.warning('SQLite lives in /tmp (%s) - data will NOT survive. '
+                       'Set DATABASE_URL or SQLITE_PATH for persistence.', DB_PATH)
     else:
-        DB_PATH = ':memory:'
+        logger.info('Using SQLite database at %s', DB_PATH)
 
 def get_db():
     if DB_MODE == 'postgres':
@@ -94,8 +120,17 @@ def get_db():
         conn.autocommit = True
         return conn
     else:
-        db = sqlite3.connect(DB_PATH)
+        # timeout: wait rather than instantly raising "database is locked"
+        # when another request holds the write lock.
+        db = sqlite3.connect(DB_PATH, timeout=15)
         db.row_factory = sqlite3.Row
+        db.execute('PRAGMA foreign_keys=ON')
+        if DB_PATH != ':memory:':
+            # WAL lets readers work while a writer is active - essential for
+            # a multi-user Flask app on SQLite.
+            db.execute('PRAGMA journal_mode=WAL')
+            db.execute('PRAGMA synchronous=NORMAL')
+            db.execute('PRAGMA busy_timeout=15000')
         return db
 
 def q(query, args=None, one=False):
@@ -1427,10 +1462,14 @@ def health_detail():
         if wid:
             ex("DELETE FROM courses WHERE id=?", (wid['id'],))
         parsed = urllib.parse.urlparse(DATABASE_URL) if DATABASE_URL else None
+        ephemeral = DB_MODE == 'sqlite' and (DB_PATH.startswith('/tmp') or DB_PATH == ':memory:')
         return jsonify({
             'status': 'ok', 'db': DB_MODE, 'courses': co, 'write_test': wrote,
             'db_host': parsed.hostname if parsed else None,
-            'ephemeral_storage': DB_MODE == 'sqlite' and DB_PATH.startswith('/tmp'),
+            'db_path': DB_PATH if DB_MODE == 'sqlite' else None,
+            'persistent': not ephemeral,
+            'ephemeral_storage': ephemeral,
+            'serverless': IS_SERVERLESS,
             'env': ENV,
         })
     except Exception as e:
