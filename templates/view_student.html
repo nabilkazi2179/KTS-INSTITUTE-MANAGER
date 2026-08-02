@@ -46,6 +46,7 @@
       </div>
       <div class="card"><div class="card-title">Record Payment</div>
         <form method="POST" action="{{url_for('record_payment',student_id=student['id'])}}" style="display:flex;gap:8px;flex-wrap:wrap">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
           <input type="number" name="amount" placeholder="Amount" required step="0.01" style="padding:7px;border:1px solid var(--brd);border-radius:7px;font-size:.85rem;width:120px">
           <select name="payment_method" style="padding:7px;border:1px solid var(--brd);border-radius:7px;font-size:.85rem">
             <option>Cash</option><option>UPI</option><option>Bank Transfer</option><option>Card</option><option>Cheque</option>

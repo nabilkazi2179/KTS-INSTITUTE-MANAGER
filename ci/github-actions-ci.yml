@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master, production-hardening]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.11', '3.12']
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Run tests
+        run: pytest -v
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install scanners
+        run: pip install bandit pip-audit
+
+      - name: Static security scan
+        run: bandit -r app.py -ll
+
+      - name: Dependency vulnerability audit
+        run: pip-audit -r requirements.txt || true
+
+      - name: Fail if a hardcoded secret key reappears
+        run: |
+          if grep -rn "kts-secret-key" --include=*.py .; then
+            echo "::error::Hardcoded secret key found"
+            exit 1
+          fi
+          if grep -rn "debug=True" --include=*.py .; then
+            echo "::error::debug=True found"
+            exit 1
+          fi

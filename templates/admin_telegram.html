@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+{% block title %}Telegram Bot Token{% endblock %}
+{% block content %}
+<div class="card" style="max-width:560px;margin:30px auto;padding:28px">
+  <h3 style="margin-top:0">&#128273; Telegram Bot Token</h3>
+
+  {% if from_env %}
+    <div class="alert alert-info">A token is set via the <code>TELEGRAM_BOT_TOKEN</code>
+    environment variable. That value takes priority over anything saved here.</div>
+  {% endif %}
+
+  <p>Stored token: <code>{{ masked or 'not set' }}</code></p>
+
+  {% if not webhook_secret_set %}
+    <div class="alert alert-warning">
+      <strong>Webhook is unauthenticated.</strong> Set <code>TELEGRAM_WEBHOOK_SECRET</code>
+      and register it with Telegram so only Telegram can post updates:
+      <pre style="font-size:11px;overflow:auto;margin:8px 0 0">curl "https://api.telegram.org/bot&lt;TOKEN&gt;/setWebhook?url=https://YOUR-DOMAIN/telegram/webhook&amp;secret_token=&lt;SECRET&gt;"</pre>
+    </div>
+  {% endif %}
+
+  <form method="POST">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    <label style="display:block;margin:12px 0 4px;font-size:.85rem">New token</label>
+    <input name="token" placeholder="123456789:AA..." required autocomplete="off"
+           style="width:100%;padding:9px;border:1px solid #ddd;border-radius:6px">
+    <button class="btn" style="margin-top:14px">Save Token</button>
+  </form>
+
+  <p style="font-size:.78rem;opacity:.65;margin-top:16px">
+    Prefer the environment variable in production. The database fallback exists only for
+    hosts where you cannot set env vars.
+  </p>
+</div>
+{% endblock %}

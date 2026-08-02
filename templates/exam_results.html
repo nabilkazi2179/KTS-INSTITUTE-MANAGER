@@ -10,6 +10,7 @@
 </div>
 <div class="card">
   <form method="POST">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
     <div class="table-wrap"><table>
       <thead><tr><th>Student ID</th><th>Name</th>{% if exam.exam_type in ('theory','both') %}<th>Theory</th>{% endif %}{% if exam.exam_type in ('practical','both') %}<th>Practical</th>{% endif %}<th>Total</th><th>%</th><th>Grade</th><th>Status</th></tr></thead>
       <tbody>{% for s in students %}<tr>
