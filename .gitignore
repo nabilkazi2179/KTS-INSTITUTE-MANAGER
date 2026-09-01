@@ -8,3 +8,7 @@ static/uploads/
 venv/
 
 .vercel
+
+# test artifacts
+tests/_test.sqlite
+tests/**/__pycache__/

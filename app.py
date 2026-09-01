@@ -11,6 +11,13 @@ from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 import threading
 
+# Load environment variables from a local .env file if present (VPS / dev).
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except Exception:
+    pass
+
 # ── Telegram Config ──────────────────────────────────────────
 def _load_telegram_token():
     tok = os.environ.get('TELEGRAM_BOT_TOKEN', '').strip()
@@ -282,6 +289,10 @@ def init_db():
     cur.execute(f'''CREATE TABLE IF NOT EXISTS service_items (
         id {AID}, doc_id INTEGER NOT NULL, description TEXT,
         qty REAL DEFAULT 1, rate REAL DEFAULT 0, amount REAL DEFAULT 0)''')
+    # Per-user module permissions (admin grants these to 'user' accounts)
+    cur.execute(f'''CREATE TABLE IF NOT EXISTS user_permissions (
+        id {AID}, user_id INTEGER NOT NULL, module TEXT NOT NULL,
+        UNIQUE(user_id, module))''')
     # Ensure optional columns exist (safe on re-runs / existing DBs)
     def _add_col(tbl, col, typ):
         try: cur.execute(f'ALTER TABLE {tbl} ADD COLUMN {col} {typ}')
@@ -296,10 +307,14 @@ def init_db():
         if DB_MODE == 'postgres':
             qry = qry.replace('?', '%s')
         cur2.execute(qry, args)
-    _run("SELECT id FROM users WHERE username=?", ('admin',))
+    _admin_user = os.environ.get('ADMIN_USERNAME', 'admin')
+    _admin_pass = os.environ.get('ADMIN_PASSWORD', 'admin123')
+    _admin_name = os.environ.get('ADMIN_FULLNAME', 'Super Admin')
+    _admin_email = os.environ.get('ADMIN_EMAIL', 'admin@konkantechnologies.in')
+    _run("SELECT id FROM users WHERE username=?", (_admin_user,))
     if not cur2.fetchone():
         _run("INSERT INTO users (username,password_hash,full_name,email,role) VALUES (?,?,?,?,?)",
-            ('admin', generate_password_hash('admin123'), 'Super Admin', 'admin@kts.com', 'super_admin'))
+            (_admin_user, generate_password_hash(_admin_pass), _admin_name, _admin_email, 'super_admin'))
     # Courses
     dc = [
         ('TP','Tally Prime','3 Months',8000,'Complete Tally Prime with GST accounting'),
@@ -359,14 +374,44 @@ def log(uid, action, tbl, rid, det=''):
     try: ex("INSERT INTO audit_logs (user_id,action,table_name,record_id,details) VALUES (?,?,?,?,?)",(uid,action,tbl,rid,det))
     except: pass
 
-ROLE_PERMS = {
-    'super_admin':['all'],'admin':['all'],
-    'accountant':['fees','payments','receipts','reports','students_view'],
-    'counselor':['students','admissions','attendance','reports_view'],
-    'trainer':['students_view','attendance','exams','results','batches_view'],
-    'student':['student_portal']
+# ── Access control ──────────────────────────────────────────
+# Grantable modules. Admin/super_admin implicitly get ALL of them.
+# A "user" (role='user') only gets the modules an admin ticks for them.
+MODULES = {
+    'students':    'Students',
+    'courses':     'Courses',
+    'batches':     'Batches',
+    'trainers':    'Trainers',
+    'fees':        'Fees',
+    'expenses':    'Expenses',
+    'finance':     'Finance Summary',
+    'services':    'Services (Quote/Invoice/Proposal)',
+    'attendance':  'Attendance',
+    'exams':       'Exams',
+    'certificates':'Certificates',
+    'reports':     'Reports',
 }
-def has_perm(role, perm): return 'all' in ROLE_PERMS.get(role,[]) or perm in ROLE_PERMS.get(role,[])
+ADMIN_ROLES = ('super_admin', 'admin')
+
+def is_admin(role=None):
+    return (role or session.get('role', '')) in ADMIN_ROLES
+
+def get_user_modules(user_id):
+    """Return the set of module keys granted to a (non-admin) user."""
+    rows = q("SELECT module FROM user_permissions WHERE user_id=?", (user_id,))
+    return {r['module'] for r in rows}
+
+def has_module(module):
+    """True if the current session may access `module`."""
+    if is_admin():
+        return True
+    return module in session.get('modules', [])
+
+def has_perm(role, perm):
+    """Back-compat helper: admins have everything; others check granted modules."""
+    if role in ADMIN_ROLES:
+        return True
+    return perm in session.get('modules', [])
 
 def login_required(f):
     @wraps(f)
@@ -376,19 +421,49 @@ def login_required(f):
     return d
 
 def role_required(*roles):
+    """Legacy role gate — now: admins always pass; otherwise the role must match.
+    (Kept so existing routes keep working; new routes should prefer perm_required.)"""
     def dec(f):
         @wraps(f)
         def d(*a,**k):
-            if session.get('role') not in roles: flash('Access denied.','danger'); return redirect(url_for('dashboard'))
+            if is_admin() or session.get('role') in roles:
+                return f(*a,**k)
+            flash('Access denied.','danger'); return redirect(url_for('dashboard'))
+        return d
+    return dec
+
+def perm_required(module):
+    """Gate a route behind a grantable module. Admins always pass."""
+    def dec(f):
+        @wraps(f)
+        def d(*a,**k):
+            if 'user_id' not in session:
+                flash('Please login first.','warning'); return redirect(url_for('login'))
+            if not has_module(module):
+                flash('Access denied — you do not have permission for that section.','danger')
+                return redirect(url_for('dashboard'))
             return f(*a,**k)
         return d
     return dec
 
+def admin_required(f):
+    """Admin-only routes (user management, company/token settings)."""
+    @wraps(f)
+    def d(*a,**k):
+        if 'user_id' not in session:
+            flash('Please login first.','warning'); return redirect(url_for('login'))
+        if not is_admin():
+            flash('Access denied — admin only.','danger'); return redirect(url_for('dashboard'))
+        return f(*a,**k)
+    return d
+
 @app.context_processor
 def g():
-    return {'now':datetime.now(),'app_name':'KTS Institute Manager',
+    return {'now':datetime.now(),'app_name':'KonkanTech Manager',
             'institute':'Konkan Technology Services',
             'config_error':DB_CONFIG_ERROR,
+            'is_admin':is_admin(),
+            'can':has_module,   # usage in templates: {% if can('services') %}
             'urole':session.get('role',''),'uname':session.get('full_name','')}
 
 @app.route('/login',methods=['GET','POST'])
@@ -401,6 +476,8 @@ def login():
             session['user_id']=user['id']; session['username']=user['username']
             session['full_name']=user['full_name']; session['role']=user['role']
             session['email']=user['email']
+            # Load granted modules into the session (admins get all implicitly).
+            session['modules']=list(MODULES.keys()) if user['role'] in ADMIN_ROLES else list(get_user_modules(user['id']))
             log(user['id'],'login','users',user['id'])
             flash(f'Welcome, {user["full_name"]}!','success')
             if user['role']=='student':
@@ -440,7 +517,7 @@ def dashboard():
     return render_template('dashboard.html',ts=ts,acs=acs,tc=tc,tb=tb,tt=tt,tcol=tcol,pf=pf,ci=ci,rs=rs,ue=ue,ce=ce,mf=mf)
 
 @app.route('/students')
-@login_required
+@perm_required('students')
 def students_list():
     s=request.args.get('search',''); cf=request.args.get('course',''); sf=request.args.get('status','')
     qr="SELECT s.*,c.course_name FROM students s LEFT JOIN courses c ON s.course_id=c.id WHERE 1=1"; p=[]
@@ -451,8 +528,7 @@ def students_list():
     return render_template('students_list.html',students=q(qr,p),courses=q("SELECT * FROM courses WHERE is_active=1 ORDER BY course_name"))
 
 @app.route('/students/add',methods=['GET','POST'])
-@login_required
-@role_required('super_admin','admin','counselor')
+@perm_required('students')
 def add_student():
     cl=q("SELECT * FROM courses WHERE is_active=1 ORDER BY course_name")
     bl=q("SELECT b.*,c.course_name FROM batches b JOIN courses c ON b.course_id=c.id WHERE b.status='active'")
@@ -499,7 +575,7 @@ def add_student():
     return render_template('add_student.html',courses=cl,batches=bl,counselors=co)
 
 @app.route('/students/<int:id>')
-@login_required
+@perm_required('students')
 def view_student(id):
     st=q("SELECT s.*,c.course_name,c.duration,c.course_code FROM students s LEFT JOIN courses c ON s.course_id=c.id WHERE s.id=?",(id,),one=True)
     if not st: abort(404)
@@ -513,8 +589,7 @@ def view_student(id):
     return render_template('view_student.html',student=st,fs=fs,pay=pay,tp=tp,tf=tf,pn=pn,ar=ar,rr=rr,ct=ct,ap=ap)
 
 @app.route('/students/<int:id>/edit',methods=['GET','POST'])
-@login_required
-@role_required('super_admin','admin','counselor')
+@perm_required('students')
 def edit_student(id):
     st=q("SELECT * FROM students WHERE id=?",(id,),one=True)
     if not st: abort(404)
@@ -585,35 +660,32 @@ def telegram_link_api():
 
 
 @app.route('/courses')
-@login_required
+@perm_required('courses')
 def courses():
     return render_template('courses.html',courses=q("SELECT * FROM courses ORDER BY course_name"))
 
 @app.route('/courses/add',methods=['POST'])
-@login_required
-@role_required('super_admin','admin')
+@perm_required('courses')
 def add_course():
     ex("INSERT INTO courses (course_code,course_name,duration,fees,description) VALUES (?,?,?,?,?)",
         (request.form.get('course_code','').upper(),request.form.get('course_name',''),request.form.get('duration',''),float(request.form.get('fees',0)),request.form.get('description','')))
     flash('Course added!','success'); return redirect(url_for('courses'))
 
 @app.route('/courses/<int:id>/edit',methods=['POST'])
-@login_required
-@role_required('super_admin','admin')
+@perm_required('courses')
 def edit_course(id):
     ex("UPDATE courses SET course_code=?,course_name=?,duration=?,fees=?,description=? WHERE id=?",
         (request.form.get('course_code','').upper(),request.form.get('course_name',''),request.form.get('duration',''),float(request.form.get('fees',0) or 0),request.form.get('description',''),id))
     flash('Course updated!','success'); return redirect(url_for('courses'))
 
 @app.route('/courses/<int:id>/toggle',methods=['POST'])
-@login_required
-@role_required('super_admin','admin')
+@perm_required('courses')
 def toggle_course(id):
     ex("UPDATE courses SET is_active=CASE WHEN is_active=1 THEN 0 ELSE 1 END WHERE id=?",(id,))
     return redirect(url_for('courses'))
 
 @app.route('/batches')
-@login_required
+@perm_required('batches')
 def batches():
     return render_template('batches.html',batches=q("SELECT b.*,c.course_name,(SELECT COUNT(*) FROM students WHERE batch_id=b.id) as strength FROM batches b JOIN courses c ON b.course_id=c.id ORDER BY b.id DESC"),courses=q("SELECT * FROM courses WHERE is_active=1 ORDER BY course_name"))
 
@@ -623,23 +695,21 @@ def get_batches(course_id):
     return jsonify([dict(b) for b in q("SELECT id,batch_name FROM batches WHERE course_id=? AND status='active'",(course_id,))])
 
 @app.route('/batches/add',methods=['POST'])
-@login_required
-@role_required('super_admin','admin')
+@perm_required('batches')
 def add_batch():
     ex("INSERT INTO batches (batch_name,course_id,trainer_id,timing,start_date,end_date,max_strength,status) VALUES (?,?,?,?,?,?,?,?)",
         (request.form.get('batch_name',''),request.form.get('course_id'),request.form.get('trainer_id') or None,request.form.get('timing',''),request.form.get('start_date',''),request.form.get('end_date',''),int(request.form.get('max_strength',30)),'active'))
     flash('Batch created!','success'); return redirect(url_for('batches'))
 
 @app.route('/fees')
-@login_required
+@perm_required('fees')
 def fees():
     fd=q("SELECT s.id,s.student_id,s.full_name,s.mobile,c.course_name,fs.total_fee,COALESCE((SELECT SUM(amount) FROM fee_payments WHERE student_id=s.id),0) as paid,(SELECT payment_date FROM fee_payments WHERE student_id=s.id ORDER BY payment_date DESC LIMIT 1) as last_payment_date FROM students s LEFT JOIN courses c ON s.course_id=c.id LEFT JOIN fee_structures fs ON fs.student_id=s.id WHERE s.status='active' ORDER BY s.full_name")
     tp=sum(max(0,(f['total_fee'] or 0)-f['paid']) for f in fd); tc=sum(f['paid'] for f in fd)
     return render_template('fees.html',fee_data=fd,tp=tp,tc=tc)
 
 @app.route('/fees/pay/<int:student_id>',methods=['POST'])
-@login_required
-@role_required('super_admin','admin','accountant')
+@perm_required('fees')
 def record_payment(student_id):
     amt=float(request.form.get('amount',0))
     if amt<=0: flash('Amount > 0 required.','danger'); return redirect(url_for('view_student',id=student_id))
@@ -652,14 +722,13 @@ def record_payment(student_id):
     flash(f'Payment recorded! Receipt: {rcp}','success'); return redirect(url_for('view_student',id=student_id))
 
 @app.route('/fees/receipt/<int:payment_id>')
-@login_required
+@perm_required('fees')
 def view_receipt(payment_id):
     p=q("SELECT fp.id as payment_fk,fp.student_id as student_fk,fp.*,s.full_name,s.student_id as sid,s.mobile,s.address,c.course_name FROM fee_payments fp JOIN students s ON fp.student_id=s.id LEFT JOIN courses c ON s.course_id=c.id WHERE fp.id=?",(payment_id,),one=True)
     return render_template('receipt.html',payment=p)
 
 @app.route('/attendance',methods=['GET','POST'])
-@login_required
-@role_required('super_admin','admin','trainer','counselor')
+@perm_required('attendance')
 def attendance():
     bl=q("SELECT b.id,b.batch_name,c.course_name FROM batches b JOIN courses c ON b.course_id=c.id WHERE b.status='active'")
     ds=request.args.get('date',date.today().isoformat()); bid=request.args.get('batch_id','')
@@ -682,21 +751,19 @@ def attendance():
     return render_template('attendance.html',batches=bl,selected_batch=bid,date=ds,students=sib)
 
 @app.route('/exams')
-@login_required
+@perm_required('exams')
 def exams():
     return render_template('exams.html',exams=q("SELECT e.*,c.course_name,(SELECT COUNT(*) FROM exam_results WHERE exam_id=e.id) as results_entered FROM exams e JOIN courses c ON e.course_id=c.id ORDER BY e.exam_date DESC"),courses=q("SELECT * FROM courses WHERE is_active=1 ORDER BY course_name"))
 
 @app.route('/exams/add',methods=['POST'])
-@login_required
-@role_required('super_admin','admin','trainer')
+@perm_required('exams')
 def add_exam():
     ex("INSERT INTO exams (exam_name,course_id,batch_id,exam_date,max_marks,passing_marks,exam_type) VALUES (?,?,?,?,?,?,?)",
         (request.form.get('exam_name',''),request.form.get('course_id'),request.form.get('batch_id') or None,request.form.get('exam_date',''),float(request.form.get('max_marks',100)),float(request.form.get('passing_marks',40)),request.form.get('exam_type','theory')))
     flash('Exam created!','success'); return redirect(url_for('exams'))
 
 @app.route('/exams/<int:eid>/results',methods=['GET','POST'])
-@login_required
-@role_required('super_admin','admin','trainer')
+@perm_required('exams')
 def exam_results(eid):
     exm=q("SELECT e.*,c.course_name FROM exams e JOIN courses c ON e.course_id=c.id WHERE e.id=?",(eid,),one=True)
     if not exm: abort(404)
@@ -720,15 +787,14 @@ def exam_results(eid):
     return render_template('exam_results.html',exam=exm,students=studs)
 
 @app.route('/certificates')
-@login_required
+@perm_required('certificates')
 def certificates():
     ct=q("SELECT cert.*,s.full_name,s.student_id,c.course_name FROM certificates cert JOIN students s ON cert.student_id=s.id JOIN courses c ON cert.course_id=c.id ORDER BY cert.id DESC")
     sl=q("SELECT s.id,s.full_name,s.student_id,c.course_name,c.id as course_id FROM students s JOIN courses c ON s.course_id=c.id WHERE s.status='active' ORDER BY s.full_name")
     return render_template('certificates.html',certificates=ct,students=sl)
 
 @app.route('/certificates/generate',methods=['POST'])
-@login_required
-@role_required('super_admin','admin')
+@perm_required('certificates')
 def generate_certificate():
     sid=request.form.get('student_id',type=int)
     if not sid: flash('Select student.','danger'); return redirect(url_for('certificates'))
@@ -745,7 +811,7 @@ def generate_certificate():
     flash(f'Certificate: {cn}','success'); return redirect(url_for('certificates'))
 
 @app.route('/certificates/view/<int:cid>')
-@login_required
+@perm_required('certificates')
 def view_certificate(cid):
     ct=q("SELECT cert.*,s.full_name,s.student_id,s.photo,c.course_name,c.duration FROM certificates cert JOIN students s ON cert.student_id=s.id JOIN courses c ON cert.course_id=c.id WHERE cert.id=?",(cid,),one=True)
     if not ct: abort(404)
@@ -762,21 +828,20 @@ def verify_certificate():
     return render_template('verify_cert.html',result=result)
 
 @app.route('/trainers')
-@login_required
+@perm_required('trainers')
 def trainers():
     tr=q("SELECT t.*,u.full_name,u.email,u.phone FROM trainers t JOIN users u ON t.user_id=u.id ORDER BY u.full_name")
     return render_template('trainers.html',trainers=tr)
 
 @app.route('/trainers/<int:id>')
-@login_required
+@perm_required('trainers')
 def view_trainer(id):
     t=q("SELECT t.*,u.full_name,u.email,u.phone FROM trainers t JOIN users u ON t.user_id=u.id WHERE t.id=?",(id,),one=True)
     if not t: abort(404)
     return render_template('trainer_view.html',t=t)
 
 @app.route('/trainers/add',methods=['POST'])
-@login_required
-@role_required('super_admin','admin')
+@perm_required('trainers')
 def add_trainer():
     un=request.form.get('email','').replace('@','_').replace('.','_') or f"trainer_{uuid.uuid4().hex[:6]}"
     uid=ex("INSERT INTO users (username,password_hash,full_name,email,phone,role) VALUES (?,?,?,?,?,?)",
@@ -785,26 +850,74 @@ def add_trainer():
         (uid,request.form.get('qualification',''),request.form.get('experience',''),float(request.form.get('salary',0)),request.form.get('specialization',''),request.form.get('joining_date',date.today().isoformat())))
     flash('Trainer added!','success'); return redirect(url_for('trainers'))
 
-@app.route('/staff')
-@login_required
-@role_required('super_admin','admin')
+# ── User Management (admin only) ──
+@app.route('/users')
+@admin_required
 def staff():
-    users=q("SELECT * FROM users ORDER BY full_name")
-    return render_template('staff.html',users=users)
+    users=q("SELECT * FROM users WHERE role<>'student' ORDER BY full_name")
+    # attach granted modules to each non-admin user
+    ulist=[]
+    for u in users:
+        d=dict(u)
+        d['granted']=[] if u['role'] in ADMIN_ROLES else sorted(get_user_modules(u['id']))
+        ulist.append(d)
+    return render_template('staff.html',users=ulist,modules=MODULES,admin_roles=ADMIN_ROLES)
 
-@app.route('/staff/add',methods=['POST'])
-@login_required
-@role_required('super_admin','admin')
+@app.route('/users/add',methods=['POST'])
+@admin_required
 def add_staff():
     un=request.form.get('username','').strip()
     if not un: un=request.form.get('email','').replace('@','_').replace('.','_')
-    ex("INSERT INTO users (username,password_hash,full_name,email,phone,role) VALUES (?,?,?,?,?,?)",
-        (un,generate_password_hash('kts123'),request.form.get('full_name',''),request.form.get('email',''),request.form.get('phone',''),request.form.get('role','staff')))
-    flash('Staff added!','success'); return redirect(url_for('staff'))
+    if not un:
+        flash('Username or email required.','danger'); return redirect(url_for('staff'))
+    if q("SELECT id FROM users WHERE username=?",(un,),one=True):
+        flash(f'Username "{un}" already exists.','danger'); return redirect(url_for('staff'))
+    role=request.form.get('role','user')
+    if role not in ('user','admin'): role='user'
+    pw=request.form.get('password','').strip() or 'kts123'
+    uid=ex("INSERT INTO users (username,password_hash,full_name,email,phone,role,created_at) VALUES (?,?,?,?,?,?,?)",
+        (un,generate_password_hash(pw),request.form.get('full_name',''),request.form.get('email',''),
+         request.form.get('phone',''),role,datetime.now().isoformat()))
+    # grant selected modules (only relevant for role=user; admins get all implicitly)
+    if role=='user':
+        for m in request.form.getlist('modules'):
+            if m in MODULES:
+                ex("INSERT INTO user_permissions (user_id,module) VALUES (?,?)",(uid,m))
+    log(session['user_id'],'create','users',uid,f'user {un} ({role})')
+    flash(f'User "{un}" created. Default password: {pw}','success'); return redirect(url_for('staff'))
+
+@app.route('/users/<int:id>/permissions',methods=['POST'])
+@admin_required
+def set_user_permissions(id):
+    u=q("SELECT * FROM users WHERE id=?",(id,),one=True)
+    if not u: abort(404)
+    if u['role'] in ADMIN_ROLES:
+        flash('Admins already have full access.','info'); return redirect(url_for('staff'))
+    ex("DELETE FROM user_permissions WHERE user_id=?",(id,))
+    for m in request.form.getlist('modules'):
+        if m in MODULES:
+            ex("INSERT INTO user_permissions (user_id,module) VALUES (?,?)",(id,m))
+    log(session['user_id'],'update','user_permissions',id,'set modules')
+    flash('Permissions updated.','success'); return redirect(url_for('staff'))
+
+@app.route('/users/<int:id>/reset_password',methods=['POST'])
+@admin_required
+def reset_user_password(id):
+    pw=request.form.get('password','').strip() or 'kts123'
+    ex("UPDATE users SET password_hash=? WHERE id=?",(generate_password_hash(pw),id))
+    log(session['user_id'],'reset_password','users',id,'')
+    flash(f'Password reset to: {pw}','success'); return redirect(url_for('staff'))
+
+@app.route('/users/<int:id>/toggle',methods=['POST'])
+@admin_required
+def toggle_user(id):
+    if id==session.get('user_id'):
+        flash("You can't deactivate your own account.",'danger'); return redirect(url_for('staff'))
+    ex("UPDATE users SET is_active=CASE WHEN is_active=1 THEN 0 ELSE 1 END WHERE id=?",(id,))
+    flash('User status changed.','info'); return redirect(url_for('staff'))
 
 @app.route('/admin/telegram_token', methods=['GET','POST'])
-@login_required
-@role_required('super_admin')
+@admin_required
 def admin_telegram_token():
     if request.method == 'POST':
         tok = request.form.get('token','').strip()
@@ -827,8 +940,7 @@ def admin_telegram_token():
     </div>'''
 
 @app.route('/admin/company', methods=['GET','POST'])
-@login_required
-@role_required('super_admin','admin')
+@admin_required
 def company_settings():
     fields = ['COMPANY_NAME','COMPANY_TAGLINE','COMPANY_ADDRESS','COMPANY_PHONE','COMPANY_EMAIL']
     if request.method == 'POST':
@@ -842,12 +954,12 @@ def company_settings():
     return render_template('company_settings.html', values=values)
 
 @app.route('/reports')
-@login_required
+@perm_required('reports')
 def reports():
     return render_template('reports.html')
 
 @app.route('/reports/admissions')
-@login_required
+@perm_required('reports')
 def report_admissions():
     period=request.args.get('period','monthly')
     if period=='daily':
@@ -859,13 +971,13 @@ def report_admissions():
     return render_template('report_admissions.html',rows=rows,period=period)
 
 @app.route('/reports/fees')
-@login_required
+@perm_required('reports')
 def report_fees():
     rows=q("SELECT s.student_id,s.full_name,c.course_name,fs.total_fee,COALESCE((SELECT SUM(amount) FROM fee_payments WHERE student_id=s.id),0) as paid,fs.total_fee-COALESCE((SELECT SUM(amount) FROM fee_payments WHERE student_id=s.id),0) as pending FROM students s JOIN fee_structures fs ON fs.student_id=s.id LEFT JOIN courses c ON s.course_id=c.id WHERE s.status='active' ORDER BY pending DESC")
     return render_template('report_fees.html',rows=rows)
 
 @app.route('/reports/export/<rtype>')
-@login_required
+@perm_required('reports')
 def export_report(rtype):
     output=io.StringIO(); w=csv.writer(output)
     if rtype=='students':
@@ -883,8 +995,7 @@ def export_report(rtype):
 EXPENSE_CATEGORIES = ['Salary','Rent','Electricity','Internet','Maintenance','Marketing','Event','Supplies','Other']
 
 @app.route('/expenses')
-@login_required
-@role_required('super_admin','admin','accountant')
+@perm_required('expenses')
 def expenses():
     cat=request.args.get('category',''); mo=request.args.get('month','')
     qr="SELECT * FROM expenses WHERE 1=1"; p=[]
@@ -904,8 +1015,7 @@ def expenses():
                            by_cat=by_cat,sel_cat=cat,sel_month=mo)
 
 @app.route('/expenses/add',methods=['POST'])
-@login_required
-@role_required('super_admin','admin','accountant')
+@perm_required('expenses')
 def add_expense():
     cat=request.form.get('category','Other').strip() or 'Other'
     amt=float(request.form.get('amount',0) or 0)
@@ -920,8 +1030,7 @@ def add_expense():
     flash('Expense recorded!','success'); return redirect(url_for('expenses'))
 
 @app.route('/expenses/<int:id>/edit',methods=['POST'])
-@login_required
-@role_required('super_admin','admin','accountant')
+@perm_required('expenses')
 def edit_expense(id):
     amt=float(request.form.get('amount',0) or 0)
     ex("UPDATE expenses SET category=?,description=?,amount=?,expense_date=?,paid_to=?,payment_method=?,remarks=? WHERE id=?",
@@ -931,16 +1040,14 @@ def edit_expense(id):
     flash('Expense updated!','success'); return redirect(url_for('expenses'))
 
 @app.route('/expenses/<int:id>/delete',methods=['POST'])
-@login_required
-@role_required('super_admin','admin','accountant')
+@perm_required('expenses')
 def delete_expense(id):
     ex("DELETE FROM expenses WHERE id=?",(id,))
     log(session['user_id'],'delete','expenses',id,'')
     flash('Expense deleted.','info'); return redirect(url_for('expenses'))
 
 @app.route('/finance')
-@login_required
-@role_required('super_admin','admin','accountant')
+@perm_required('finance')
 def finance():
     fee_income=q("SELECT COALESCE(SUM(amount),0) as t FROM fee_payments")[0]['t'] or 0
     service_income=q("SELECT COALESCE(SUM(total),0) as t FROM service_docs WHERE doc_type='invoice' AND status='paid'")[0]['t'] or 0
@@ -998,8 +1105,7 @@ def _parse_items(form):
     return items, round(subtotal, 2)
 
 @app.route('/services')
-@login_required
-@role_required('super_admin','admin','accountant')
+@perm_required('services')
 def services():
     tf=request.args.get('type','')
     qr=("SELECT sd.*,c.name as client_name,c.company as client_company FROM service_docs sd "
@@ -1015,8 +1121,7 @@ def services():
                            doc_types=DOC_TYPES,doc_label=DOC_LABEL,inv_paid=inv_paid,inv_due=inv_due)
 
 @app.route('/services/clients/add',methods=['POST'])
-@login_required
-@role_required('super_admin','admin','accountant')
+@perm_required('services')
 def add_client():
     name=request.form.get('name','').strip()
     if not name:
@@ -1027,8 +1132,7 @@ def add_client():
     flash('Client added!','success'); return redirect(url_for('services'))
 
 @app.route('/services/new/<doc_type>',methods=['GET','POST'])
-@login_required
-@role_required('super_admin','admin','accountant')
+@perm_required('services')
 def new_service_doc(doc_type):
     if doc_type not in DOC_TYPES: abort(404)
     clients=q("SELECT * FROM clients ORDER BY name")
@@ -1053,8 +1157,7 @@ def new_service_doc(doc_type):
                            clients=clients,today=date.today().isoformat())
 
 @app.route('/services/<int:id>')
-@login_required
-@role_required('super_admin','admin','accountant')
+@perm_required('services')
 def view_service_doc(id):
     doc=q("SELECT sd.*,c.name as client_name,c.company as client_company,c.email as client_email,"
           "c.phone as client_phone,c.address as client_address FROM service_docs sd "
@@ -1066,24 +1169,21 @@ def view_service_doc(id):
                            statuses=DOC_STATUSES.get(doc['doc_type'],[]))
 
 @app.route('/services/<int:id>/status',methods=['POST'])
-@login_required
-@role_required('super_admin','admin','accountant')
+@perm_required('services')
 def update_doc_status(id):
     st=request.form.get('status','').strip()
     ex("UPDATE service_docs SET status=? WHERE id=?",(st,id))
     flash('Status updated.','success'); return redirect(url_for('view_service_doc',id=id))
 
 @app.route('/services/<int:id>/delete',methods=['POST'])
-@login_required
-@role_required('super_admin','admin')
+@perm_required('services')
 def delete_service_doc(id):
     ex("DELETE FROM service_items WHERE doc_id=?",(id,))
     ex("DELETE FROM service_docs WHERE id=?",(id,))
     flash('Document deleted.','info'); return redirect(url_for('services'))
 
 @app.route('/services/<int:id>/convert',methods=['POST'])
-@login_required
-@role_required('super_admin','admin','accountant')
+@perm_required('services')
 def convert_to_invoice(id):
     """Auto-invoicing: create an invoice from an existing quotation, copying its line items."""
     src=q("SELECT * FROM service_docs WHERE id=?",(id,),one=True)

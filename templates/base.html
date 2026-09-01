@@ -87,35 +87,41 @@ tr:hover td{background:rgba(79,70,229,.03)}
   <div class="logo">&#128193; KonkanTech <small>Institute of Technology &amp; Management</small></div>
   <nav>
     <a href="{{url_for('dashboard')}}"><em>&#128202;</em> Dashboard</a>
-    {% if urole in ['super_admin','admin'] %}
+    {% if can('students') or can('courses') or can('batches') or can('trainers') %}
     <div class="nl">Management</div>
-    <a href="{{url_for('students_list')}}"><em>&#127891;</em> Students</a>
-    <a href="{{url_for('courses')}}"><em>&#128218;</em> Courses</a>
-    <a href="{{url_for('batches')}}"><em>&#128203;</em> Batches</a>
-    <a href="{{url_for('trainers')}}"><em>&#128104;&#8205;&#127979;</em> Trainers</a>
+    {% if can('students') %}<a href="{{url_for('students_list')}}"><em>&#127891;</em> Students</a>{% endif %}
+    {% if can('courses') %}<a href="{{url_for('courses')}}"><em>&#128218;</em> Courses</a>{% endif %}
+    {% if can('batches') %}<a href="{{url_for('batches')}}"><em>&#128203;</em> Batches</a>{% endif %}
+    {% if can('trainers') %}<a href="{{url_for('trainers')}}"><em>&#128104;&#8205;&#127979;</em> Trainers</a>{% endif %}
     {% endif %}
-    {% if urole in ['super_admin','admin','accountant'] %}
+    {% if can('fees') or can('expenses') or can('finance') %}
     <div class="nl">Finance</div>
-    <a href="{{url_for('fees')}}"><em>&#128176;</em> Fees</a>
-    <a href="{{url_for('expenses')}}"><em>&#128184;</em> Expenses</a>
+    {% if can('fees') %}<a href="{{url_for('fees')}}"><em>&#128176;</em> Fees</a>{% endif %}
+    {% if can('expenses') %}<a href="{{url_for('expenses')}}"><em>&#128184;</em> Expenses</a>{% endif %}
+    {% if can('finance') %}<a href="{{url_for('finance')}}"><em>&#128181;</em> Finance</a>{% endif %}
+    {% endif %}
+    {% if can('services') %}
     <div class="nl">Business</div>
     <a href="{{url_for('services')}}"><em>&#128188;</em> Services</a>
     {% endif %}
-    {% if urole in ['super_admin','admin','trainer','counselor'] %}
+    {% if can('attendance') or can('exams') %}
     <div class="nl">Academic</div>
-    <a href="{{url_for('attendance')}}"><em>&#9989;</em> Attendance</a>
-    <a href="{{url_for('exams')}}"><em>&#128221;</em> Exams</a>
+    {% if can('attendance') %}<a href="{{url_for('attendance')}}"><em>&#9989;</em> Attendance</a>{% endif %}
+    {% if can('exams') %}<a href="{{url_for('exams')}}"><em>&#128221;</em> Exams</a>{% endif %}
     {% endif %}
-    {% if urole in ['super_admin','admin'] %}
+    {% if can('certificates') %}
     <div class="nl">Certificates</div>
     <a href="{{url_for('certificates')}}"><em>&#127942;</em> Certificates</a>
     {% endif %}
     <div class="nl">General</div>
-    <a href="{{url_for('reports')}}"><em>&#128200;</em> Reports</a>
+    {% if can('reports') %}<a href="{{url_for('reports')}}"><em>&#128200;</em> Reports</a>{% endif %}
     <a href="{{url_for('verify_certificate')}}"><em>&#128269;</em> Verify Cert</a>
     {% if urole == 'student' %}<a href="{{url_for('student_portal')}}"><em>&#128100;</em> My Portal</a>{% endif %}
-    {% if urole == 'super_admin' %}<a href="{{url_for('staff')}}"><em>&#128101;</em> Staff</a>{% endif %}
-    {% if urole in ['super_admin','admin'] %}<a href="{{url_for('company_settings')}}"><em>&#127970;</em> Company</a>{% endif %}
+    {% if is_admin %}
+    <div class="nl">Admin</div>
+    <a href="{{url_for('staff')}}"><em>&#128101;</em> Users</a>
+    <a href="{{url_for('company_settings')}}"><em>&#127970;</em> Company</a>
+    {% endif %}
   </nav>
   <div class="uinfo">
     <div class="av">{{uname[0] if uname else 'U'}}</div>
