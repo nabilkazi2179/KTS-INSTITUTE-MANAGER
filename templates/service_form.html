@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}New {{ label }}{% endblock %}
+{% block content %}
+<div class="card">
+  <div class="card-title">&#128196; New {{ label }}</div>
+  <form method="POST">
+    <div class="form-grid">
+      <div class="fg"><label>Client</label>
+        <select name="client_id">
+          <option value="">— Select client —</option>
+          {% for c in clients %}<option value="{{ c.id }}">{{ c.name }}{% if c.company %} ({{ c.company }}){% endif %}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="fg"><label>Title / Subject</label><input name="title" placeholder="e.g. Website Development"></div>
+      <div class="fg"><label>Date</label><input type="date" name="doc_date" value="{{ today }}"></div>
+      {% if doc_type == 'quotation' %}
+      <div class="fg"><label>Valid Until</label><input type="date" name="valid_until"></div>
+      {% endif %}
+    </div>
+
+    {% if doc_type == 'proposal' %}
+    <div class="fg" style="margin-bottom:14px"><label>Proposal Content</label>
+      <textarea name="body" style="min-height:160px" placeholder="Describe the scope, approach, deliverables, timeline..."></textarea>
+    </div>
+    {% endif %}
+
+    <h4 style="margin:16px 0 8px;font-size:.9rem">Line Items</h4>
+    <div class="table-wrap"><table id="itemsTable">
+      <thead><tr><th style="width:50%">Description</th><th>Qty</th><th>Rate (&#8377;)</th><th>Amount</th><th></th></tr></thead>
+      <tbody id="itemsBody">
+        <tr>
+          <td><input name="item_desc[]" placeholder="Service / item description" style="width:100%"></td>
+          <td><input name="item_qty[]" type="number" step="0.01" value="1" class="q" style="width:80px" oninput="calc()"></td>
+          <td><input name="item_rate[]" type="number" step="0.01" value="0" class="r" style="width:110px" oninput="calc()"></td>
+          <td class="amt">0</td>
+          <td><button type="button" class="btn btn-danger btn-sm" onclick="delRow(this)">&times;</button></td>
+        </tr>
+      </tbody>
+    </table></div>
+    <button type="button" class="btn btn-outline btn-sm" style="margin-top:8px" onclick="addRow()">+ Add Line</button>
+
+    <div class="form-grid" style="margin-top:16px;max-width:420px;margin-left:auto">
+      <div class="fg"><label>Subtotal</label><input id="subtotal" readonly value="0"></div>
+      <div class="fg"><label>Discount (&#8377;)</label><input name="discount" id="discount" type="number" step="0.01" value="0" oninput="calc()"></div>
+      <div class="fg"><label>Total (&#8377;)</label><input id="total" readonly value="0" style="font-weight:700"></div>
+    </div>
+
+    <div class="fg" style="margin-top:12px"><label>Notes / Terms</label><textarea name="notes" placeholder="Payment terms, validity, etc."></textarea></div>
+
+    <button class="btn btn-success" style="margin-top:14px">Create {{ label }}</button>
+    <a href="{{ url_for('services') }}" class="btn btn-outline">Cancel</a>
+  </form>
+</div>
+
+<script>
+function rowTpl(){
+  return '<tr>'+
+    '<td><input name="item_desc[]" placeholder="Service / item description" style="width:100%"></td>'+
+    '<td><input name="item_qty[]" type="number" step="0.01" value="1" class="q" style="width:80px" oninput="calc()"></td>'+
+    '<td><input name="item_rate[]" type="number" step="0.01" value="0" class="r" style="width:110px" oninput="calc()"></td>'+
+    '<td class="amt">0</td>'+
+    '<td><button type="button" class="btn btn-danger btn-sm" onclick="delRow(this)">&times;</button></td>'+
+  '</tr>';
+}
+function addRow(){ document.getElementById('itemsBody').insertAdjacentHTML('beforeend', rowTpl()); }
+function delRow(b){ var rows=document.querySelectorAll('#itemsBody tr'); if(rows.length>1){ b.closest('tr').remove(); calc(); } }
+function calc(){
+  var sub=0;
+  document.querySelectorAll('#itemsBody tr').forEach(function(tr){
+    var q=parseFloat(tr.querySelector('.q').value)||0;
+    var r=parseFloat(tr.querySelector('.r').value)||0;
+    var a=q*r; sub+=a;
+    tr.querySelector('.amt').textContent=a.toLocaleString('en-IN',{maximumFractionDigits:2});
+  });
+  var disc=parseFloat(document.getElementById('discount').value)||0;
+  document.getElementById('subtotal').value=sub.toLocaleString('en-IN',{maximumFractionDigits:2});
+  document.getElementById('total').value=Math.max(0,sub-disc).toLocaleString('en-IN',{maximumFractionDigits:2});
+}
+calc();
+</script>
+{% endblock %}

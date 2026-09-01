@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block title %}{{ label }} {{ doc.doc_no }}{% endblock %}
+{% block content %}
+
+<div class="card no-print" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+  <div>
+    <form method="POST" action="{{ url_for('update_doc_status', id=doc.id) }}" style="display:inline-flex;gap:6px;align-items:center">
+      <select name="status" style="padding:6px;border:1px solid var(--brd);border-radius:7px;font-size:.82rem">
+        {% for s in statuses %}<option value="{{ s }}" {% if doc.status==s %}selected{% endif %}>{{ s }}</option>{% endfor %}
+      </select>
+      <button class="btn btn-outline btn-sm">Update Status</button>
+    </form>
+  </div>
+  <div style="display:flex;gap:6px">
+    <button onclick="window.print()" class="btn btn-primary btn-sm">&#128424; Print / PDF</button>
+    {% if doc.doc_type == 'quotation' %}
+    <form method="POST" action="{{ url_for('convert_to_invoice', id=doc.id) }}" style="display:inline" onsubmit="return confirm('Generate an invoice from this quotation?')">
+      <button class="btn btn-success btn-sm">&#8594; Convert to Invoice</button>
+    </form>
+    {% endif %}
+    {% if urole in ['super_admin','admin'] %}
+    <form method="POST" action="{{ url_for('delete_service_doc', id=doc.id) }}" style="display:inline" onsubmit="return confirm('Delete this document permanently?')">
+      <button class="btn btn-danger btn-sm">Delete</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card doc-sheet">
+  <div class="doc-head">
+    <div>
+      <div class="doc-company">{{ company.name }}</div>
+      <div class="doc-tagline">{{ company.tagline }}</div>
+      {% if company.address %}<div class="doc-meta">{{ company.address }}</div>{% endif %}
+      <div class="doc-meta">
+        {% if company.phone %}&#9742; {{ company.phone }}{% endif %}
+        {% if company.email %} &nbsp; &#9993; {{ company.email }}{% endif %}
+      </div>
+    </div>
+    <div style="text-align:right">
+      <div class="doc-type-badge">{{ label|upper }}</div>
+      <div class="doc-meta"><b>No:</b> {{ doc.doc_no }}</div>
+      <div class="doc-meta"><b>Date:</b> {{ doc.doc_date }}</div>
+      {% if doc.valid_until %}<div class="doc-meta"><b>Valid Until:</b> {{ doc.valid_until }}</div>{% endif %}
+      <div class="doc-meta"><b>Status:</b> {{ doc.status }}</div>
+    </div>
+  </div>
+
+  <div class="doc-bill">
+    <div class="doc-meta" style="text-transform:uppercase;font-size:.65rem;letter-spacing:1px;color:#888">
+      {{ 'Bill To' if doc.doc_type=='invoice' else 'Prepared For' }}
+    </div>
+    <div style="font-weight:700;font-size:1rem">{{ doc.client_name or '—' }}</div>
+    {% if doc.client_company %}<div class="doc-meta">{{ doc.client_company }}</div>{% endif %}
+    {% if doc.client_address %}<div class="doc-meta">{{ doc.client_address }}</div>{% endif %}
+    <div class="doc-meta">
+      {% if doc.client_phone %}&#9742; {{ doc.client_phone }}{% endif %}
+      {% if doc.client_email %} &nbsp; {{ doc.client_email }}{% endif %}
+    </div>
+  </div>
+
+  {% if doc.title %}<h2 class="doc-title">{{ doc.title }}</h2>{% endif %}
+  {% if doc.body %}<div class="doc-body">{{ doc.body|replace('\n','<br>')|safe }}</div>{% endif %}
+
+  {% if items %}
+  <table class="doc-table">
+    <thead><tr><th>#</th><th>Description</th><th class="num">Qty</th><th class="num">Rate</th><th class="num">Amount</th></tr></thead>
+    <tbody>
+      {% for it in items %}
+      <tr>
+        <td>{{ loop.index }}</td>
+        <td>{{ it.description }}</td>
+        <td class="num">{{ '{:g}'.format(it.qty or 0) }}</td>
+        <td class="num">&#8377;{{ '{:,.2f}'.format(it.rate or 0) }}</td>
+        <td class="num">&#8377;{{ '{:,.2f}'.format(it.amount or 0) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <div class="doc-totals">
+    <div><span>Subtotal</span><span>&#8377;{{ '{:,.2f}'.format(doc.subtotal or 0) }}</span></div>
+    {% if doc.discount and doc.discount > 0 %}<div><span>Discount</span><span>- &#8377;{{ '{:,.2f}'.format(doc.discount) }}</span></div>{% endif %}
+    <div class="grand"><span>Total</span><span>&#8377;{{ '{:,.2f}'.format(doc.total or 0) }}</span></div>
+  </div>
+  {% endif %}
+
+  {% if doc.notes %}<div class="doc-notes"><b>Notes / Terms:</b><br>{{ doc.notes|replace('\n','<br>')|safe }}</div>{% endif %}
+
+  <div class="doc-foot">This is a computer-generated document from {{ company.name }}.</div>
+</div>
+
+<style>
+.doc-sheet{max-width:820px;margin:0 auto;color:#1e293b;background:#fff}
+.doc-head{display:flex;justify-content:space-between;gap:20px;border-bottom:3px solid var(--p);padding-bottom:16px;margin-bottom:18px}
+.doc-company{font-size:1.5rem;font-weight:800;color:var(--p);letter-spacing:-.5px}
+.doc-tagline{font-size:.8rem;color:#64748b;margin-bottom:6px}
+.doc-meta{font-size:.8rem;color:#475569;line-height:1.6}
+.doc-type-badge{display:inline-block;background:var(--p);color:#fff;font-weight:700;letter-spacing:2px;padding:4px 14px;border-radius:6px;margin-bottom:8px}
+.doc-bill{margin-bottom:16px}
+.doc-title{font-size:1.15rem;margin:10px 0}
+.doc-body{font-size:.88rem;line-height:1.7;margin-bottom:16px;color:#334155}
+.doc-table{width:100%;border-collapse:collapse;margin:10px 0}
+.doc-table th{background:#f1f5f9;text-align:left;padding:9px;font-size:.72rem;text-transform:uppercase;letter-spacing:.5px;color:#475569}
+.doc-table td{padding:9px;border-bottom:1px solid #e2e8f0;font-size:.85rem}
+.doc-table .num{text-align:right}
+.doc-totals{margin:14px 0 0 auto;max-width:300px;font-size:.9rem}
+.doc-totals div{display:flex;justify-content:space-between;padding:5px 0}
+.doc-totals .grand{border-top:2px solid #1e293b;font-weight:800;font-size:1.05rem;margin-top:4px;padding-top:8px}
+.doc-notes{margin-top:22px;font-size:.82rem;color:#475569;background:#f8fafc;padding:12px;border-radius:8px;border:1px solid #e2e8f0}
+.doc-foot{margin-top:28px;text-align:center;font-size:.72rem;color:#94a3b8;border-top:1px solid #e2e8f0;padding-top:12px}
+@media print{
+  .sidebar,.topbar,.no-print{display:none !important}
+  .main{margin-left:0 !important}
+  .content{padding:0 !important}
+  .card{border:none !important;box-shadow:none !important;margin:0 !important;padding:0 !important}
+  body{background:#fff !important}
+}
+</style>
+{% endblock %}

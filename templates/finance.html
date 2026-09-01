@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Finance Summary{% endblock %}
+{% block content %}
+
+<div class="stats-grid">
+  <div class="stat"><div class="ico s">&#128176;</div><div class="info"><div class="val">&#8377;{{ '{:,.0f}'.format(total_income) }}</div><div class="lbl">Total Income</div></div></div>
+  <div class="stat"><div class="ico d">&#128184;</div><div class="info"><div class="val">&#8377;{{ '{:,.0f}'.format(total_expenses) }}</div><div class="lbl">Total Expenses</div></div></div>
+  <div class="stat"><div class="ico {{ 'p' if net >= 0 else 'w' }}">{{ '&#128200;'|safe if net >= 0 else '&#128201;'|safe }}</div><div class="info"><div class="val" style="color:{{ 'var(--s)' if net >= 0 else 'var(--d)' }}">&#8377;{{ '{:,.0f}'.format(net) }}</div><div class="lbl">Net {{ 'Profit' if net >= 0 else 'Loss' }}</div></div></div>
+</div>
+
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px">
+  <div class="card">
+    <div class="card-title">&#128200; Income Breakdown</div>
+    <table>
+      <tr><td>Fees Collected (Institute)</td><td style="text-align:right;font-weight:600">&#8377;{{ '{:,.0f}'.format(fee_income) }}</td></tr>
+      <tr><td>Service Invoices (Paid)</td><td style="text-align:right;font-weight:600">&#8377;{{ '{:,.0f}'.format(service_income) }}</td></tr>
+      <tr style="border-top:2px solid var(--brd)"><td style="font-weight:700">Total Income</td><td style="text-align:right;font-weight:700">&#8377;{{ '{:,.0f}'.format(total_income) }}</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <div class="card-title">&#128184; Expenses by Category</div>
+    <table>
+      {% for e in exp_by_cat %}
+      <tr><td>{{ e.category }}</td><td style="text-align:right;font-weight:600">&#8377;{{ '{:,.0f}'.format(e.total or 0) }}</td></tr>
+      {% else %}
+      <tr><td colspan="2" style="color:var(--m);text-align:center">No expenses recorded.</td></tr>
+      {% endfor %}
+      {% if exp_by_cat %}<tr style="border-top:2px solid var(--brd)"><td style="font-weight:700">Total Expenses</td><td style="text-align:right;font-weight:700">&#8377;{{ '{:,.0f}'.format(total_expenses) }}</td></tr>{% endif %}
+    </table>
+  </div>
+</div>
+{% endblock %}
