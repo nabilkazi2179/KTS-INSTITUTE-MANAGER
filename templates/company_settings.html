@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Company Details{% endblock %}
+{% block content %}
+<div class="card" style="max-width:640px;margin:0 auto">
+  <div class="card-title">&#127970; Company Details</div>
+  <p style="color:var(--m);font-size:.85rem;margin-bottom:16px">These details appear on the header of quotations, invoices, and proposals.</p>
+  <form method="POST">
+    <div class="fg" style="margin-bottom:12px"><label>Company Name</label><input name="COMPANY_NAME" value="{{ values.COMPANY_NAME }}"></div>
+    <div class="fg" style="margin-bottom:12px"><label>Tagline</label><input name="COMPANY_TAGLINE" value="{{ values.COMPANY_TAGLINE }}"></div>
+    <div class="fg" style="margin-bottom:12px"><label>Address</label><textarea name="COMPANY_ADDRESS">{{ values.COMPANY_ADDRESS }}</textarea></div>
+    <div class="form-grid">
+      <div class="fg"><label>Phone</label><input name="COMPANY_PHONE" value="{{ values.COMPANY_PHONE }}"></div>
+      <div class="fg"><label>Email</label><input name="COMPANY_EMAIL" value="{{ values.COMPANY_EMAIL }}"></div>
+    </div>
+    <button class="btn btn-success" style="margin-top:12px">Save Details</button>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Services{% endblock %}
+{% block content %}
+
+<div class="stats-grid">
+  <div class="stat"><div class="ico s">&#128181;</div><div class="info"><div class="val">&#8377;{{ '{:,.0f}'.format(inv_paid) }}</div><div class="lbl">Invoices Paid</div></div></div>
+  <div class="stat"><div class="ico w">&#8987;</div><div class="info"><div class="val">&#8377;{{ '{:,.0f}'.format(inv_due) }}</div><div class="lbl">Invoices Outstanding</div></div></div>
+  <div class="stat"><div class="ico p">&#128196;</div><div class="info"><div class="val">{{ docs|length }}</div><div class="lbl">Documents</div></div></div>
+</div>
+
+<div class="card">
+  <div class="card-title">
+    &#128188; IT Services
+    <span>
+      <a href="{{ url_for('new_service_doc', doc_type='quotation') }}" class="btn btn-primary btn-sm">+ Quotation</a>
+      <a href="{{ url_for('new_service_doc', doc_type='invoice') }}" class="btn btn-success btn-sm">+ Invoice</a>
+      <a href="{{ url_for('new_service_doc', doc_type='proposal') }}" class="btn btn-warning btn-sm">+ Proposal</a>
+      <button onclick="document.getElementById('addCli').classList.toggle('show')" class="btn btn-outline btn-sm">+ Client</button>
+    </span>
+  </div>
+
+  <div id="addCli" style="display:none;margin-bottom:18px;padding:16px;background:var(--bg);border-radius:8px">
+    <form method="POST" action="{{ url_for('add_client') }}">
+      <div class="form-grid">
+        <div class="fg"><label>Client Name *</label><input name="name" required></div>
+        <div class="fg"><label>Company</label><input name="company"></div>
+        <div class="fg"><label>Email</label><input type="email" name="email"></div>
+        <div class="fg"><label>Phone</label><input name="phone"></div>
+        <div class="fg"><label>Address</label><input name="address"></div>
+      </div>
+      <button class="btn btn-success">Save Client</button>
+    </form>
+  </div>
+
+  <div class="tabs">
+    <a href="{{ url_for('services') }}" class="{{ 'active' if not sel_type }}">All</a>
+    {% for t in doc_types %}<a href="{{ url_for('services', type=t) }}" class="{{ 'active' if sel_type==t }}">{{ doc_label[t] }}s</a>{% endfor %}
+  </div>
+
+  <div class="table-wrap"><table>
+    <thead><tr><th>Doc No</th><th>Type</th><th>Client</th><th>Title</th><th>Date</th><th>Total</th><th>Status</th><th></th></tr></thead>
+    <tbody>
+      {% for d in docs %}
+      <tr>
+        <td style="font-weight:600">{{ d.doc_no }}</td>
+        <td>{{ doc_label[d.doc_type] }}</td>
+        <td>{{ d.client_name or '-' }}{% if d.client_company %} <span style="color:var(--m)">({{ d.client_company }})</span>{% endif %}</td>
+        <td>{{ d.title }}</td>
+        <td>{{ d.doc_date }}</td>
+        <td>&#8377;{{ '{:,.0f}'.format(d.total or 0) }}</td>
+        <td><span class="badge {{ 'active' if d.status in ['paid','accepted'] else ('pending' if d.status in ['draft','sent'] else 'inactive') }}">{{ d.status }}</span></td>
+        <td><a href="{{ url_for('view_service_doc', id=d.id) }}" class="btn btn-outline btn-sm">Open</a></td>
+      </tr>
+      {% else %}
+      <tr><td colspan="8" style="text-align:center;color:var(--m);padding:20px">No documents yet. Create a quotation, invoice, or proposal above.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table></div>
+</div>
+{% endblock %}

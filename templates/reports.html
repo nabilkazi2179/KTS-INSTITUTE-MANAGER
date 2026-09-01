@@ -18,13 +18,19 @@
     <div style="font-size:2rem;margin-bottom:8px">&#128229;</div>
     <h3 style="font-size:1rem;margin-bottom:4px">Export Students</h3>
     <p style="color:var(--m);font-size:.8rem;margin-bottom:12px">Download student data</p>
-    <a href="{{url_for('export_report',rtype=students)}}" class="btn btn-success btn-sm">Export CSV</a>
+    <a href="{{url_for('export_report',rtype='students')}}" class="btn btn-success btn-sm">Export CSV</a>
   </div>
   <div class="card" style="text-align:center">
     <div style="font-size:2rem;margin-bottom:8px">&#128229;</div>
     <h3 style="font-size:1rem;margin-bottom:4px">Export Fees</h3>
     <p style="color:var(--m);font-size:.8rem;margin-bottom:12px">Download fee data</p>
-    <a href="{{url_for('export_report',rtype=fees)}}" class="btn btn-success btn-sm">Export CSV</a>
+    <a href="{{url_for('export_report',rtype='fees')}}" class="btn btn-success btn-sm">Export CSV</a>
+  </div>
+  <div class="card" style="text-align:center">
+    <div style="font-size:2rem;margin-bottom:8px">&#128181;</div>
+    <h3 style="font-size:1rem;margin-bottom:4px">Finance Summary</h3>
+    <p style="color:var(--m);font-size:.8rem;margin-bottom:12px">Income vs. expenses &amp; net</p>
+    <a href="{{url_for('finance')}}" class="btn btn-primary btn-sm">View Report</a>
   </div>
 </div>
 {% endblock %}

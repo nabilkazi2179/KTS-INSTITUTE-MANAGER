@@ -84,7 +84,7 @@ tr:hover td{background:rgba(79,70,229,.03)}
 </head>
 <body>
 <div class="sidebar" id="sidebar">
-  <div class="logo">&#127979; KTS <small>Institute Manager</small></div>
+  <div class="logo">&#128193; KonkanTech <small>Institute of Technology &amp; Management</small></div>
   <nav>
     <a href="{{url_for('dashboard')}}"><em>&#128202;</em> Dashboard</a>
     {% if urole in ['super_admin','admin'] %}
@@ -97,6 +97,9 @@ tr:hover td{background:rgba(79,70,229,.03)}
     {% if urole in ['super_admin','admin','accountant'] %}
     <div class="nl">Finance</div>
     <a href="{{url_for('fees')}}"><em>&#128176;</em> Fees</a>
+    <a href="{{url_for('expenses')}}"><em>&#128184;</em> Expenses</a>
+    <div class="nl">Business</div>
+    <a href="{{url_for('services')}}"><em>&#128188;</em> Services</a>
     {% endif %}
     {% if urole in ['super_admin','admin','trainer','counselor'] %}
     <div class="nl">Academic</div>
@@ -112,6 +115,7 @@ tr:hover td{background:rgba(79,70,229,.03)}
     <a href="{{url_for('verify_certificate')}}"><em>&#128269;</em> Verify Cert</a>
     {% if urole == 'student' %}<a href="{{url_for('student_portal')}}"><em>&#128100;</em> My Portal</a>{% endif %}
     {% if urole == 'super_admin' %}<a href="{{url_for('staff')}}"><em>&#128101;</em> Staff</a>{% endif %}
+    {% if urole in ['super_admin','admin'] %}<a href="{{url_for('company_settings')}}"><em>&#127970;</em> Company</a>{% endif %}
   </nav>
   <div class="uinfo">
     <div class="av">{{uname[0] if uname else 'U'}}</div>
@@ -131,6 +135,7 @@ tr:hover td{background:rgba(79,70,229,.03)}
     </div>
   </div>
   <div class="content">
+    {% if config_error %}<div class="alert alert-danger">&#9888; Configuration problem: {{config_error}}</div>{% endif %}
     {% with msgs=get_flashed_messages(with_categories=true) %}
     {% if msgs %}{% for cat,msg in msgs %}<div class="alert alert-{{cat}}">{{msg}}</div>{% endfor %}{% endif %}
     {% endwith %}

@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}Expenses{% endblock %}
+{% block content %}
+
+<div class="stats-grid">
+  <div class="stat"><div class="ico d">&#128184;</div><div class="info"><div class="val">&#8377;{{ '{:,.0f}'.format(total) }}</div><div class="lbl">Total {{ 'for '+sel_month if sel_month else 'Expenses' }}</div></div></div>
+  <div class="stat"><div class="ico p">&#128203;</div><div class="info"><div class="val">{{ expenses|length }}</div><div class="lbl">Entries</div></div></div>
+  {% for c, amt in by_cat.items() %}
+    {% if loop.index <= 2 %}
+    <div class="stat"><div class="ico w">&#128181;</div><div class="info"><div class="val">&#8377;{{ '{:,.0f}'.format(amt) }}</div><div class="lbl">{{ c }}</div></div></div>
+    {% endif %}
+  {% endfor %}
+</div>
+
+<div class="card">
+  <div class="card-title">
+    &#128184; Expenses
+    <button onclick="document.getElementById('addExp').classList.toggle('show')" class="btn btn-primary btn-sm">+ Add Expense</button>
+  </div>
+
+  <div id="addExp" style="display:none;margin-bottom:18px;padding:16px;background:var(--bg);border-radius:8px">
+    <form method="POST" action="{{ url_for('add_expense') }}">
+      <div class="form-grid">
+        <div class="fg"><label>Category *</label>
+          <select name="category" required>
+            {% for c in categories %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="fg"><label>Amount (&#8377;) *</label><input type="number" step="0.01" min="0" name="amount" required></div>
+        <div class="fg"><label>Date</label><input type="date" name="expense_date" value="{{ now.strftime('%Y-%m-%d') }}"></div>
+        <div class="fg"><label>Paid To</label><input type="text" name="paid_to" placeholder="Vendor / person"></div>
+        <div class="fg"><label>Payment Method</label>
+          <select name="payment_method"><option>Cash</option><option>Bank Transfer</option><option>UPI</option><option>Cheque</option><option>Card</option></select>
+        </div>
+        <div class="fg"><label>Description</label><input type="text" name="description" placeholder="e.g. Office rent - August"></div>
+      </div>
+      <div class="fg" style="margin-bottom:12px"><label>Remarks</label><textarea name="remarks"></textarea></div>
+      <button class="btn btn-success">Save Expense</button>
+    </form>
+  </div>
+
+  <form method="GET" style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+    <select name="category" style="padding:7px;border:1px solid var(--brd);border-radius:7px;font-size:.85rem">
+      <option value="">All Categories</option>
+      {% for c in categories %}<option value="{{ c }}" {% if sel_cat==c %}selected{% endif %}>{{ c }}</option>{% endfor %}
+    </select>
+    <input type="month" name="month" value="{{ sel_month }}" style="padding:7px;border:1px solid var(--brd);border-radius:7px;font-size:.85rem">
+    <button class="btn btn-outline btn-sm">Filter</button>
+    <a href="{{ url_for('expenses') }}" class="btn btn-outline btn-sm">Reset</a>
+  </form>
+
+  <div class="table-wrap"><table>
+    <thead><tr><th>Date</th><th>Category</th><th>Description</th><th>Paid To</th><th>Method</th><th>Amount</th><th></th></tr></thead>
+    <tbody>
+      {% for e in expenses %}
+      <tr>
+        <td>{{ e.expense_date }}</td>
+        <td><span class="badge active">{{ e.category }}</span></td>
+        <td>{{ e.description }}</td>
+        <td>{{ e.paid_to }}</td>
+        <td>{{ e.payment_method }}</td>
+        <td style="font-weight:600">&#8377;{{ '{:,.0f}'.format(e.amount or 0) }}</td>
+        <td>
+          <form method="POST" action="{{ url_for('delete_expense', id=e.id) }}" style="display:inline" onsubmit="return confirm('Delete this expense?')">
+            <button class="btn btn-danger btn-sm">Delete</button>
+          </form>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="7" style="text-align:center;color:var(--m);padding:20px">No expenses recorded yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table></div>
+</div>
+{% endblock %}
